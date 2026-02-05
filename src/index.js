@@ -1,4 +1,4 @@
-import { render } from '@wordpress/element';
+const { render } = wp.element;
 import Dashboard from './components/Dashboard';
 import './style.css';
 

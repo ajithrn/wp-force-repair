@@ -14,7 +14,7 @@
 
 ## Installation
 
-1. Download the `force-update-plugin-theme.zip` file.
+1. Download the `wp-force-repair.zip` file.
 2. Go to your WordPress Dashboard -> Plugins -> Add New -> Upload Plugin.
 3. Upload the zip file and click "Install Now".
 4. Activate the plugin.

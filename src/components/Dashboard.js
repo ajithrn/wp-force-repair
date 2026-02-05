@@ -1,24 +1,30 @@
-import logo from '../assets/logo.png';
-import { useState } from '@wordpress/element';
+const { useState } = wp.element;
+const apiFetch = wp.apiFetch;
 import icons from '../icons'; 
-import RepoBrowser from './RepoBrowser';
 import InstalledList from './InstalledList';
-import PremiumList from './PremiumList';
 import InstallerOverlay from './InstallerOverlay';
-import apiFetch from '@wordpress/api-fetch';
 
 const Dashboard = () => {
-    const [ view, setView ] = useState( 'search' ); 
+    const [ view, setView ] = useState( 'installed' ); 
     
     // Installer State
     const [ isInstalling, setIsInstalling ] = useState( false );
     const [ installLogs, setInstallLogs ] = useState( [] );
     const [ installStatus, setInstallStatus ] = useState( 'processing' ); // processing, success, error
     const [ installMessage, setInstallMessage ] = useState( '' );
+    const [ installProgress, setInstallProgress ] = useState( '' ); // e.g. "1/5"
 
-    const handleInstall = async ( slug, type, download_link ) => {
+    const handleInstall = async ( slug, type, download_link, progress = '' ) => {
         setIsInstalling( true );
-        setInstallLogs( [ `Starting installation for ${slug}...`, `Type: ${type}`, `Source: ${download_link}` ] );
+        setInstallProgress( progress );
+        
+        setInstallLogs( [ `Starting installation for ${slug}...`, `Type: ${type}` ] );
+        if ( download_link ) {
+             setInstallLogs( prev => [ ...prev, `Source: ${download_link}` ] );
+        } else {
+             setInstallLogs( prev => [ ...prev, `Source: Auto-detect from WP.org` ] );
+        }
+        
         setInstallStatus( 'processing' );
         setInstallMessage( '' );
 
@@ -26,7 +32,7 @@ const Dashboard = () => {
             setInstallLogs( prev => [ ...prev, 'Downloading package...' ] );
             
             const response = await apiFetch( {
-                path: '/force-update/v1/install',
+                path: '/wp-force-repair/v1/install',
                 method: 'POST',
                 data: { slug, type, download_link }
             } );
@@ -54,60 +60,47 @@ const Dashboard = () => {
         }
     };
 
+    // ...
+
     const closeOverlay = () => {
         setIsInstalling( false );
         setInstallLogs( [] );
+        setInstallProgress( '' );
     };
 
     return (
-        <div className="wfr-dashboard-layout">
+        <div className="wrap">
+            {/* ... */}
             <InstallerOverlay 
                 isOpen={ isInstalling }
                 logs={ installLogs }
                 status={ installStatus }
                 message={ installMessage }
+                progress={ installProgress }
                 onClose={ closeOverlay }
             />
+            {/* ... */}
 
-            <header className="wfr-header">
-                <div className="wfr-brand">
-                    <img src={logo} alt="WP Force Repair" className="wfr-logo-img" style={{ height: '40px', marginRight: '1rem' }} />
-                    <h1>WP Force Repair</h1>
-                </div>
-                <div className="wfr-header-actions">
-                   {/* User Profile or Settings Icon could go here */}
-                </div>
-            </header>
+            <h2 className="nav-tab-wrapper">
+                <a 
+                    href="#" 
+                    className={`nav-tab ${ view === 'installed_plugins' || view === 'installed' ? 'nav-tab-active' : '' }`}
+                    onClick={(e) => { e.preventDefault(); setView('installed_plugins'); }}
+                >
+                    Installed Plugins
+                </a>
+                <a 
+                    href="#" 
+                    className={`nav-tab ${ view === 'installed_themes' ? 'nav-tab-active' : '' }`}
+                    onClick={(e) => { e.preventDefault(); setView('installed_themes'); }}
+                >
+                    Installed Themes
+                </a>
+            </h2>
 
-            <div className="wfr-main-container">
-                <aside className="wfr-sidebar">
-                    <nav className="wfr-nav">
-                        <button 
-                            className={`wfr-nav-item ${ view === 'search' ? 'active' : '' }`}
-                            onClick={() => setView('search')}
-                        >
-                            <span className="icon">🔍</span> Repo Browser
-                        </button>
-                        <button 
-                            className={`wfr-nav-item ${ view === 'installed' ? 'active' : '' }`}
-                            onClick={() => setView('installed')}
-                        >
-                            <span className="icon">📦</span> Installed
-                        </button>
-                        <button 
-                            className={`wfr-nav-item ${ view === 'premium' ? 'active' : '' }`}
-                            onClick={() => setView('premium')}
-                        >
-                            <span className="icon">💎</span> Premium
-                        </button>
-                    </nav>
-                </aside>
-
-                <main className="wfr-content">
-                    { view === 'search' && <RepoBrowser onInstall={ handleInstall } /> }
-                    { view === 'installed' && <InstalledList /> }
-                    { view === 'premium' && <PremiumList /> }
-                </main>
+            <div className="wfr-content-wrap" style={{ marginTop: '20px' }}>
+                { ( view === 'installed_plugins' || view === 'installed' ) && <InstalledList type="plugin" onReinstall={ handleInstall } /> }
+                { view === 'installed_themes' && <InstalledList type="theme" onReinstall={ handleInstall } /> }
             </div>
         </div>
     );

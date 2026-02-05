@@ -31,9 +31,9 @@ class UpdateController {
 					}
 				],
 				'download_link' => [
-					'required' => true,
+					'required' => false,
 					'validate_callback' => function($param) {
-						return filter_var($param, FILTER_VALIDATE_URL);
+						return empty($param) || filter_var($param, FILTER_VALIDATE_URL);
 					}
 				]
 			]
@@ -49,38 +49,43 @@ class UpdateController {
 		require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
 		require_once ABSPATH . 'wp-admin/includes/plugin.php';
 		require_once ABSPATH . 'wp-admin/includes/theme.php';
+        require_once ABSPATH . 'wp-admin/includes/plugin-install.php';
+
+        // If no download link provided, try to fetch it from WP Repo
+        if ( empty( $download_link ) ) {
+            if ( 'plugin' === $type ) {
+                $api = plugins_api( 'plugin_information', [ 'slug' => $slug, 'fields' => [ 'sections' => false ] ] );
+                if ( is_wp_error( $api ) ) {
+                    return new \WP_REST_Response( [
+                        'success' => false,
+                        'message' => 'Could not retrieve download link: ' . $api->get_error_message(),
+                    ], 500 );
+                }
+                $download_link = $api->download_link;
+            } else {
+                $api = themes_api( 'theme_information', [ 'slug' => $slug, 'fields' => [ 'sections' => false ] ] );
+                if ( is_wp_error( $api ) ) {
+                    return new \WP_REST_Response( [
+                        'success' => false,
+                        'message' => 'Could not retrieve download link: ' . $api->get_error_message(),
+                    ], 500 );
+                }
+                $download_link = $api->download_link;
+            }
+        }
 
 		$skin = new JsonSkin();
 		
-		// Force overwrite logic usually handled by upgrader if destination exists.
-		// Standard `install` might fail if folder exists unless we use `upgrade` or manually delete first.
-		// However, for "Force Update", we often want to overwrite. 
-		// `Plugin_Upgrader::install` expects package. 
-		
-		// Let's use the Upgrader.
 		if ( 'plugin' === $type ) {
 			$upgrader = new \Plugin_Upgrader( $skin );
-			// To force overwrite, we might need a hook on 'upgrader_package_options' or similar, 
-			// OR just rely on standard install which might complain. 
-			// Actually, `Plugin_Upgrader` has `install` method. 
-			// If we want to overwrite, we typically need to delete the old one or use `upgrade` if it's installed.
 			
 			// Check if installed
 			$plugin_file = $this->get_plugin_file( $slug );
 			
 			if ( $plugin_file && file_exists( WP_PLUGIN_DIR . '/' . $plugin_file ) ) {
-				// It is installed. Use upgrade process logic, OR delete and install.
-				// "Force Update" implies overwrite. 
-				// Let's try `upgrade`. `upgrade` methods often require version checks.
-				// Simplest "Force" is: download, unzip, replace.
-				
-				// Standard `install` will fail if directory exists.
-				// Let's hook into `upgrader_pre_install` to delete existing if we want standard "clean" install?
-				// Or better, use `upgrade` with `clear_destination => true`.
-
 				add_filter( 'upgrader_package_options', function($options) {
 					$options['clear_destination'] = true;
-					$options['abort_if_destination_exists'] = false; // Hook/Key might vary by WordPress version but clear_destination is the standard "overwrite" flag
+					$options['abort_if_destination_exists'] = false; 
 					return $options;
 				} );
 			}
@@ -115,7 +120,6 @@ class UpdateController {
 		}
 		
 		if ( ! $result ) {
-             // Null result often means generic failure in upgrader
 			return new \WP_REST_Response( [
 				'success' => false,
 				'message' => 'Installation failed. Check logs.',
@@ -133,16 +137,18 @@ class UpdateController {
 
 	private function get_plugin_file( $slug ) {
 		// Helper to find the main plugin file from slug.
-		// This is tricky because slug doesn't always equal folder name, but usually does.
-		// And we need the 'folder/file.php' format.
 		if ( ! function_exists( 'get_plugins' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/plugin.php';
 		}
 		$plugins = get_plugins();
 		foreach ( $plugins as $file => $data ) {
+			// Exact match for slug folder
 			if ( strpos( $file, $slug . '/' ) === 0 ) {
 				return $file;
-			}
+			// Or if it's a single file plugin matching slug.php
+			} elseif ( $file === $slug . '.php' ) {
+                return $file;
+            }
 		}
 		return null;
 	}

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WP Force Repair
  * Description: The ultimate recovery tool. Force install plugins/themes, repair core files, and clean up malware/hacks.
- * Version: 1.1.0
+ * Version: 1.2.0
  * Author: Ajith R N
  * Author URI: https://ajithrn.com
  * Text Domain: wp-force-repair
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'WFR_VERSION', '1.1.0' );
+define( 'WFR_VERSION', '1.2.0' );
 define( 'WFR_PATH', plugin_dir_path( __FILE__ ) );
 define( 'WFR_URL', plugin_dir_url( __FILE__ ) );
 
@@ -93,7 +93,7 @@ function wfr_enqueue_assets( $hook ) {
 
 		wp_enqueue_style(
 			'wfr-style',
-			WFR_URL . 'build/index.css',
+			WFR_URL . 'build/style-index.css',
 			[],
 			$assets['version']
 		);
