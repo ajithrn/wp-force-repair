@@ -1,0 +1,21 @@
+{
+  "name": "wp-force-repair",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "wp-scripts start",
+    "build": "wp-scripts build",
+    "zip": "wp-scripts plugin-zip",
+    "package": "npm run build && npm run zip",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@svgr/webpack": "^8.1.0",
+    "@wordpress/scripts": "^31.4.0",
+    "url-loader": "^4.1.1"
+  }
+}

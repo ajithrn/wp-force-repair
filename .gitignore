@@ -1,0 +1,13 @@
+# Dependencies
+node_modules/
+
+# Build
+build/
+*.zip
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+npm-debug.log

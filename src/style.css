@@ -1,0 +1,233 @@
+/**
+ * Force Update Plugin - Premium Styles
+ * Scoped to .wfr-dashboard
+ */
+
+.wfr-dashboard {
+  --wfr-bg-dark: #0f172a;
+  --wfr-bg-card: #1e293b;
+  --wfr-text-primary: #f8fafc;
+  --wfr-text-secondary: #94a3b8;
+  --wfr-accent: #38bdf8;
+  --wfr-accent-glow: rgba(56, 189, 248, 0.5);
+  --wfr-danger: #ef4444;
+  --wfr-success: #22c55e;
+  --wfr-border: #334155;
+  --wfr-glass: rgba(30, 41, 59, 0.7);
+
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: var(--wfr-text-primary);
+  background: var(--wfr-bg-dark);
+  min-height: calc(100vh - 32px);
+  /* Adjust for WP Admin bar */
+  margin: -20px -20px 0 -22px;
+  /* Break out of WP Admin padding */
+  padding: 2rem;
+  box-sizing: border-box;
+}
+
+/* Animations */
+@keyframes wfr-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.wfr-dashboard * {
+  box-sizing: border-box;
+}
+
+/* Glassmorphism Card Utils */
+.wfr-card {
+  background: var(--wfr-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--wfr-border);
+  border-radius: 16px;
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.wfr-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+  border-color: var(--wfr-accent);
+}
+
+/* Typography */
+.wfr-title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(to right, #fff, #94a3b8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.wfr-subtitle {
+  color: var(--wfr-text-secondary);
+  margin-bottom: 2rem;
+}
+
+/* Buttons */
+.wfr-btn {
+  background: var(--wfr-accent);
+  color: #0f172a;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.wfr-btn:hover {
+  background: #7dd3fc;
+  box-shadow: 0 0 15px var(--wfr-accent-glow);
+}
+
+.wfr-btn-outline {
+  background: transparent;
+  border: 1px solid var(--wfr-border);
+  color: var(--wfr-text-primary);
+}
+
+.wfr-btn-outline:hover {
+  border-color: var(--wfr-text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.wfr-btn-danger {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--wfr-danger);
+  border: 1px solid var(--wfr-danger);
+}
+
+.wfr-btn-danger:hover {
+  background: var(--wfr-danger);
+  color: #fff;
+}
+
+/* Form Elements */
+.wfr-input {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--wfr-border);
+  color: #fff;
+  padding: 0.75rem;
+  border-radius: 8px;
+  width: 100%;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.wfr-input:focus {
+  outline: none;
+  border-color: var(--wfr-accent);
+  box-shadow: 0 0 0 2px var(--wfr-accent-glow);
+}
+
+/* Modals & Terminal */
+.wfr-overlay-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(5px);
+  z-index: 10000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.wfr-modal {
+  background: #1e1e1e;
+  width: 90%;
+  max-width: 600px;
+  border-radius: 12px;
+  border: 1px solid var(--wfr-border);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.wfr-modal-header {
+  padding: 1rem;
+  background: #2d2d2d;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #333;
+}
+
+.wfr-terminal-window {
+  background: #000;
+  padding: 1rem;
+  height: 300px;
+  overflow-y: auto;
+  font-family: 'Courier New', monospace;
+  color: #0f0;
+  font-size: 0.9rem;
+}
+
+.wfr-log-line {
+  margin-bottom: 0.25rem;
+  word-break: break-all;
+}
+
+.wfr-prompt {
+  color: #888;
+  margin-right: 0.5rem;
+}
+
+.wfr-blink {
+  animation: wfr-blink 1s infinite;
+}
+
+@keyframes wfr-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.wfr-status-footer {
+  padding: 1rem;
+  background: #2d2d2d;
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.wfr-status-footer.success {
+  color: var(--wfr-success);
+}
+
+.wfr-status-footer.error {
+  color: var(--wfr-danger);
+}
+
+/* Grid Utils */
+.wfr-results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.wfr-view-container {
+  padding: 1rem;
+}
