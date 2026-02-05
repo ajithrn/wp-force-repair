@@ -1,8 +1,10 @@
 /* WP Force Repair - Native UI Styles */
 
 /* Ensure wrapper takes full width but follows WP padding */
+.wfr-dashboard .wrap, 
 .wfr-content-wrap {
-  max-width: 100%;
+  max-width: 98% !important; /* Force nearly full width */
+  margin-right: 20px;
 }
 
 /* Enhancements for WP Card Grid */

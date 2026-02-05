@@ -205,34 +205,9 @@ const CoreManager = () => {
                 </div>
             </div>
 
-            <div className="wfr-system-tools-card card" style={{ marginTop: '20px', padding: '15px' }}>
-                <h3 style={{ marginTop: 0 }}>System Health Tools</h3>
-                <div style={{ display: 'flex', gap: '15px' }}>
-                    <button className="button button-secondary" onClick={ async () => {
-                        if( confirm('Flush Permalinks?') ) {
-                            try {
-                                const res = await apiFetch({ path: '/wp-force-repair/v1/core/tools/flush-permalinks', method: 'POST' });
-                                alert( res.message );
-                            } catch(e) { alert(e.message); }
-                        }
-                    }}>
-                        Flush Permalinks
-                    </button>
-                    
-                     <button className="button button-secondary" onClick={ async () => {
-                        if( confirm('Regenerate .htaccess?\n\nA backup of your current .htaccess will be created.') ) {
-                            try {
-                                const res = await apiFetch({ path: '/wp-force-repair/v1/core/tools/regenerate-htaccess', method: 'POST' });
-                                alert( res.message + ( res.backup ? '\n' + res.backup : '' ) );
-                            } catch(e) { alert(e.message); }
-                        }
-                    }}>
-                        Regenerate .htaccess
-                    </button>
-                </div>
-            </div>
 
-            <div className="wfr-scan-section card" style={{ marginTop: '20px', padding: '15px' }}>
+
+            <div className="wfr-scan-section card" style={{ marginTop: '20px', padding: '15px', maxWidth: '100%' }}>
                 <h3 style={{ marginTop: 0 }}>File Integrity Scan (Root Directory)</h3>
                 <p>The following files were found in your root directory but are <strong>not</strong> standard WordPress files.</p>
                 
@@ -284,7 +259,7 @@ const CoreManager = () => {
 
             {/* Quarantine Viewer */}
             { quarantinedData.length > 0 && (
-                <div className="wfr-quarantine-section card" style={{ marginTop: '20px', padding: '15px' }}>
+                <div className="wfr-quarantine-section card" style={{ marginTop: '20px', padding: '15px', maxWidth: '100%' }}>
                     <h3 style={{ marginTop: 0 }}>Quarantined Files</h3>
                     <p>Files moved here are safe and inactive. You can restore them if needed.</p>
                     
