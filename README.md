@@ -1,5 +1,7 @@
 # WP Force Repair
 
+![WP Force Repair Logo](assets/logo.png)
+
 **WP Force Repair** is a specialized recovery tool designed to fix hacked or broken WordPress sites. It allows you to safely force re-install, update, or replace plugins and themes directly from the official repository, verifying file integrity.
 
 ## Features

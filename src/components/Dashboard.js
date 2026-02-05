@@ -1,3 +1,4 @@
+import logo from '../assets/logo.png';
 import { useState } from '@wordpress/element';
 import icons from '../icons'; 
 import RepoBrowser from './RepoBrowser';
@@ -70,7 +71,7 @@ const Dashboard = () => {
 
             <header className="wfr-header">
                 <div className="wfr-brand">
-                    <span className="wfr-logo-icon">🛡️</span>
+                    <img src={logo} alt="WP Force Repair" className="wfr-logo-img" style={{ height: '40px', marginRight: '1rem' }} />
                     <h1>WP Force Repair</h1>
                 </div>
                 <div className="wfr-header-actions">
