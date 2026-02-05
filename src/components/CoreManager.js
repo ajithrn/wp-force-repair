@@ -1,8 +1,13 @@
 const { useState, useEffect } = wp.element;
 const apiFetch = wp.apiFetch;
 import InstallerOverlay from './InstallerOverlay';
+import Swal from 'sweetalert2';
+import withReactContent from 'sweetalert2-react-content';
+
+const MySwal = withReactContent(Swal);
 
 const CoreManager = () => {
+    // ... state ...
     const [ status, setStatus ] = useState( null );
     const [ loading, setLoading ] = useState( true );
     const [ scanning, setScanning ] = useState( false );
@@ -19,9 +24,10 @@ const CoreManager = () => {
     useEffect( () => {
         fetchStatus();
         scanFiles();
-        fetchQuarantined(); // New: Fetch quarantined files
+        fetchQuarantined(); 
     }, [] );
 
+    // ... fetch functions ...
     const fetchStatus = async () => {
         try {
             const data = await apiFetch( { path: '/wp-force-repair/v1/core/status' } );
@@ -72,12 +78,18 @@ const CoreManager = () => {
         const files = filesToQuarantine || selectedFiles;
         if ( ! files.length ) return;
         
-        // Custom message based on count
-        const msg = files.length === 1 
-            ? `Quarantine '${files[0]}'? It will be moved to a safe folder.` 
-            : `Quarantine ${files.length} files? They will be moved to a safe folder.`;
+        const result = await MySwal.fire({
+            title: 'Quarantine Files?',
+            text: files.length === 1 
+                ? `Move '${files[0]}' to quarantine?` 
+                : `Move ${files.length} files to quarantine?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d63638',
+            confirmButtonText: 'Yes, quarantine them!'
+        });
 
-        if ( ! confirm( msg ) ) return;
+        if ( ! result.isConfirmed ) return;
 
         try {
             const res = await apiFetch( {
@@ -87,18 +99,26 @@ const CoreManager = () => {
             } );
              
             if ( res.success ) {
-                alert( `Successfully quarantined ${res.moved.length} files.` );
+                MySwal.fire( 'Quarantined!', `Successfully quarantined ${res.moved.length} files.`, 'success' );
                 setSelectedFiles([]);
-                scanFiles(); // Refresh scan
-                fetchQuarantined(); // Refresh quarantine list
+                scanFiles(); 
+                fetchQuarantined(); 
             }
         } catch ( e ) {
-            alert( 'Error: ' + e.message );
+             MySwal.fire( 'Error', e.message, 'error' );
         }
     };
 
     const handleRestore = async ( path ) => {
-        if ( ! confirm( `Restore this file to the root directory?\n\n${path}` ) ) return;
+        const result = await MySwal.fire({
+            title: 'Restore File?',
+            text: `Restore this file to the root directory?\n${path}`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, restore it!'
+        });
+
+        if ( ! result.isConfirmed ) return;
         
         try {
             const res = await apiFetch( {
@@ -108,37 +128,58 @@ const CoreManager = () => {
             } );
             
             if ( res.success ) {
-                alert( res.message );
+                MySwal.fire( 'Restored!', res.message, 'success' );
                 scanFiles();
                 fetchQuarantined();
             }
         } catch ( e ) {
-            alert( 'Error: ' + e.message );
+            MySwal.fire( 'Error', e.message, 'error' );
         }
     };
 
     const handleDeleteQuarantined = async ( path ) => {
-        if ( ! confirm( `PERMANENTLY DELETE?\n\n${path}\n\nThis cannot be undone.` ) ) return;
+        const result = await MySwal.fire({
+            title: 'Permanently Delete?',
+            text: "You won't be able to revert this!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!'
+        });
+
+        if ( ! result.isConfirmed ) return;
 
         try {
             const res = await apiFetch( {
                 path: '/wp-force-repair/v1/core/quarantine/delete',
-                method: 'POST', // Actually delete usually uses DELETE but we use POST for consistency with other actions here easily
+                method: 'POST', 
                 data: { path: path }
             } );
 
             if ( res.success ) {
-                fetchQuarantined(); // Refresh list
+                fetchQuarantined(); 
+                MySwal.fire( 'Deleted!', 'File has been deleted.', 'success' );
             }
         } catch ( e ) {
-             alert( 'Error: ' + e.message );
+             MySwal.fire( 'Error', e.message, 'error' );
         }
     };
 
     const handleReinstall = async () => {
-        if ( ! confirm( "WARNING: This will replace all WordPress Core files.\n\n- 'wp-admin' & 'wp-includes' will be replaced.\n- Root PHP files will be overwritten.\n- Unknown root files will be Quarantined.\n\nYour 'wp-content' and 'wp-config.php' are SAFE.\n\nProceed?" ) ) {
-            return;
-        }
+        const result = await MySwal.fire({
+            title: 'Re-install Core?',
+            html: "WARNING: This will replace all WordPress Core files.<br/><br/>" +
+                  "- <b>wp-admin</b> & <b>wp-includes</b> will be replaced.<br/>" +
+                  "- Root PHP files will be overwritten.<br/>" +
+                  "- Unknown root files will be Quarantined.<br/><br/>" +
+                  "Your <b>wp-content</b> and <b>wp-config.php</b> are SAFE.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#2271b1',
+            confirmButtonText: 'Yes, Re-install Core'
+        });
+
+        if ( ! result.isConfirmed ) return;
 
         setIsInstalling( true );
         setInstallStatus( 'processing' );

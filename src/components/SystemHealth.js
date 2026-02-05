@@ -1,5 +1,9 @@
 const { useState } = wp.element;
 const apiFetch = wp.apiFetch;
+import Swal from 'sweetalert2';
+import withReactContent from 'sweetalert2-react-content';
+
+const MySwal = withReactContent(Swal);
 
 const SystemHealth = () => {
     return (
@@ -14,22 +18,38 @@ const SystemHealth = () => {
                 <p>Fixes issues where pages return "404 Not Found" or URL structures are broken.</p>
                 <div style={{ display: 'flex', gap: '15px', marginTop: '15px' }}>
                     <button className="button button-secondary button-hero" onClick={ async () => {
-                        if( confirm('Flush Permalinks?') ) {
+                         const result = await MySwal.fire({
+                            title: 'Flush Permalinks?',
+                            text: 'This will reset your rewrite rules. Useful for fixing 404 errors.',
+                            icon: 'question',
+                            showCancelButton: true,
+                            confirmButtonText: 'Yes, flush them'
+                        });
+                        
+                        if( result.isConfirmed ) {
                             try {
                                 const res = await apiFetch({ path: '/wp-force-repair/v1/core/tools/flush-permalinks', method: 'POST' });
-                                alert( res.message );
-                            } catch(e) { alert(e.message); }
+                                MySwal.fire( 'Success', res.message, 'success' );
+                            } catch(e) { MySwal.fire( 'Error', e.message, 'error' ); }
                         }
                     }}>
                         Flush Permalinks
                     </button>
                     
                      <button className="button button-secondary button-hero" onClick={ async () => {
-                        if( confirm('Regenerate .htaccess?\n\nA backup of your current .htaccess will be created.') ) {
+                        const result = await MySwal.fire({
+                            title: 'Regenerate .htaccess?',
+                            text: 'A backup of your current .htaccess will be created before regeneration.',
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonText: 'Yes, regenerate'
+                        });
+                        
+                        if( result.isConfirmed ) {
                             try {
                                 const res = await apiFetch({ path: '/wp-force-repair/v1/core/tools/regenerate-htaccess', method: 'POST' });
-                                alert( res.message + ( res.backup ? '\n' + res.backup : '' ) );
-                            } catch(e) { alert(e.message); }
+                                MySwal.fire( 'Success', res.message + ( res.backup ? '\nBackup: ' + res.backup : '' ), 'success' );
+                            } catch(e) { MySwal.fire( 'Error', e.message, 'error' ); }
                         }
                     }}>
                         Regenerate .htaccess
