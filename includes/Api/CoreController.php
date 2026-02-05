@@ -331,11 +331,10 @@ class CoreController {
             // 3. AUTO-QUARANTINE UNKNOWNS
             $scan = $this->scan_root_files();
             $suspected = $scan->data['suspected_files'];
-            if ( ! empty( $suspected ) ) {
                 $files_to_q = array_column( $suspected, 'name' );
-                $this->quarantine_files( new \WP_REST_Request( [ 'files' => $files_to_q ] ) );
-                $logs[] = "Auto-quarantined " . count( $files_to_q ) . " unknown files from root.";
-            }
+                $quarantine_request = new \WP_REST_Request( 'POST', '/wp-force-repair/v1/core/quarantine' );
+                $quarantine_request->set_body_params( [ 'files' => $files_to_q ] );
+                $this->quarantine_files( $quarantine_request );
 
             // 4. UNZIP
             $logs[] = "Unzipping package...";
