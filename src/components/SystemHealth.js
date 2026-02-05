@@ -56,6 +56,33 @@ const SystemHealth = () => {
                     </button>
                 </div>
             </div>
+
+            <div className="wfr-system-tools-card card" style={{ marginTop: '20px', padding: '20px', maxWidth: '100%' }}>
+                <h3 style={{ marginTop: 0 }}>Security Tools</h3>
+                <p>Advanced security actions. Use with caution.</p>
+                <div style={{ display: 'flex', gap: '15px', marginTop: '15px' }}>
+                    <button className="button button-secondary button-hero" onClick={ async () => {
+                        const result = await MySwal.fire({
+                            title: 'Regenerate Salt Keys?',
+                            html: "This will fetch new security keys from WordPress.org and update your wp-config.php.<br/><br/><strong style='color:#d63638'>YOU WILL BE LOGGED OUT IMMEDIATELY.</strong>",
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonColor: '#d63638',
+                            confirmButtonText: 'Yes, Regenerate & Logout'
+                        });
+                        
+                        if( result.isConfirmed ) {
+                            try {
+                                const res = await apiFetch({ path: '/wp-force-repair/v1/core/tools/regenerate-salts', method: 'POST' });
+                                await MySwal.fire( 'Success', res.message, 'success' );
+                                window.location.reload(); // Reloading usually forces the logout redirect
+                            } catch(e) { MySwal.fire( 'Error', e.message, 'error' ); }
+                        }
+                    }}>
+                        Regenerate Salt Keys
+                    </button>
+                </div>
+            </div>
         </div>
     );
 };

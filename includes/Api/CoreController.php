@@ -68,9 +68,17 @@ class CoreController {
 			},
 		] );
 
-        register_rest_route( 'wp-force-repair/v1', '/core/tools/regenerate-htaccess', [
+		register_rest_route( 'wp-force-repair/v1', '/core/tools/regenerate-htaccess', [
 			'methods'             => 'POST',
 			'callback'            => [ $this, 'regenerate_htaccess' ],
+			'permission_callback' => function () {
+				return current_user_can( 'manage_options' );
+			},
+		] );
+
+        register_rest_route( 'wp-force-repair/v1', '/core/tools/regenerate-salts', [
+			'methods'             => 'POST',
+			'callback'            => [ $this, 'regenerate_salts' ],
 			'permission_callback' => function () {
 				return current_user_can( 'manage_options' );
 			},
@@ -449,5 +457,46 @@ class CoreController {
         } else {
              return new \WP_Error( 'write_error', 'Could not create .htaccess file. Check permissions.' );
         }
+    }
+
+    public function regenerate_salts() {
+        $config_path = ABSPATH . 'wp-config.php';
+        if ( ! file_exists( $config_path ) ) {
+            if ( file_exists( dirname( ABSPATH ) . '/wp-config.php' ) ) {
+                $config_path = dirname( ABSPATH ) . '/wp-config.php';
+            } else {
+                return new \WP_Error( 'config_not_found', 'wp-config.php not found.' );
+            }
+        }
+
+        if ( ! is_writable( $config_path ) ) {
+            return new \WP_Error( 'config_not_writable', 'wp-config.php is not writable.' );
+        }
+
+        // Fetch new salts
+        $salt_api_url = 'https://api.wordpress.org/secret-key/1.1/salt/';
+        $new_salts = wp_remote_retrieve_body( wp_remote_get( $salt_api_url ) );
+
+        if ( empty( $new_salts ) ) {
+            return new \WP_Error( 'api_error', 'Failed to fetch new salts from WordPress.org.' );
+        }
+
+        $config_content = file_get_contents( $config_path );
+        
+        // Regex to find the block of salt definitions
+        // It looks for define('AUTH_KEY'... down to the last salt
+        $pattern = "/define\(\s*'AUTH_KEY'[\s\S]*?define\(\s*'NONCE_SALT'[\s\S]*?\);/m";
+
+        if ( preg_match( $pattern, $config_content ) ) {
+            $new_content = preg_replace( $pattern, $new_salts, $config_content );
+            if ( file_put_contents( $config_path, $new_content ) ) {
+                return new \WP_REST_Response( [
+                    'success' => true,
+                    'message' => 'Salt keys regenerated. You will be logged out.'
+                ], 200 );
+            }
+        }
+
+        return new \WP_Error( 'update_failed', 'Failed to update wp-config.php. Pattern may not match.' );
     }
 }

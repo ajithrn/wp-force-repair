@@ -4,35 +4,31 @@
 
 ## Features
 
-- **Repo Browser**: Search and browse plugins and themes from the official WordPress.org repository.
-- **Force Install**: Re-install existing plugins/themes or install new ones, forcibly overwriting existing files if necessary.
-- **Delete Support**: Safely delete installed plugins and themes directly from the dashboard.
-- **Core Manager**: Forced re-installation of WordPress Core, integrity scans, and quarantine management for suspicious root files.
-- **System Health**: Tools to flush permalinks and regenerate `.htaccess`.
-- **Premium UI**: A darker, modern interface built with React and scoped CSS (Isolation).
-- **Real-time Feedback**: Live terminal logs during installation processes.
+- **Force Install/Update**: Re-install existing plugins/themes or install new ones, forcibly overwriting existing files to fix corruption.
+- **Core Manager**:
+  - **Force Re-install Core**: Safely replaces `wp-admin` and `wp-includes` while keeping `wp-content` and `wp-config.php` safe.
+  - **Integrity Scan**: Scans the root directory for unknown or suspicious files.
+  - **Quarantine System**: Isolate suspicious files, restore them if needed, or permanently delete them.
+- **System Health Tools**:
+  - **Flush Permalinks**: Fixes 404 errors by resetting rewrite rules.
+  - **Regenerate .htaccess**: Recreates your `.htaccess` file with a backup.
+  - **Regenerate Salt Keys**: Refreshes security keys in `wp-config.php` and forces a logout for all users.
+- **Native UI**: A clean, familiar interface built with React that integrates seamlessly with the standard WordPress dashboard.
 
 ## Installation
 
-1. Download the `wp-force-repair.zip` file.
-2. Go to your WordPress Dashboard -> Plugins -> Add New -> Upload Plugin.
-3. Upload the zip file and click "Install Now".
+1. Download the latest `wp-force-repair.zip` from our **[GitHub Releases Page](https://github.com/ajithrn/wp-force-repair/releases/latest)**.
+2. Go to **WordPress Dashboard -> Plugins -> Add New -> Upload Plugin**.
+3. Upload the zip file and click **Install Now**.
 4. Activate the plugin.
 
-## Installation
+## Contributing
 
-1. Download the `wp-force-repair.zip` file.
-2. Go to your WordPress Dashboard -> Plugins -> Add New -> Upload Plugin.
-3. Upload the zip file and click "Install Now".
-4. Activate the plugin.
-
-## contributing
-
-Interested in developing or modifying this plugin? check out our [Developer Guide](docs/CONTRIBUTING.md).
+Interested in developing or modifying this plugin? Check out our [Developer Guide](docs/CONTRIBUTING.md).
 
 ## Roadmap
 
-We have exciting plans for the future of WP Force Repair, including Core File replacement and Database repair tools.
+We have exciting plans for the future of WP Force Repair, including deeper Database repair tools.
 
 👉 [View the full ROADMAP.md](docs/ROADMAP.md)
 
