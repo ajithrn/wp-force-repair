@@ -13,6 +13,7 @@
   - **Flush Permalinks**: Fixes 404 errors by resetting rewrite rules.
   - **Regenerate .htaccess**: Recreates your `.htaccess` file with a backup.
   - **Regenerate Salt Keys**: Refreshes security keys in `wp-config.php` and forces a logout for all users.
+  - **Comment Cleanup**: Bulk delete Spam, Trash, or Pending comments.
 - **Native UI**: A clean, familiar interface built with React that integrates seamlessly with the standard WordPress dashboard.
 
 ## Installation

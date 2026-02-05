@@ -20,6 +20,7 @@
 - [x] **System Health Tools**:
   - [x] Flush Permalinks.
   - [x] Regenerate `.htaccess`.
+  - [x] **Comment Cleanup**: Bulk delete Spam/Pending comments.
 
 ## Phase 3: Database Repair & Optimization (Planned)
 

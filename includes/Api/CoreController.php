@@ -84,6 +84,22 @@ class CoreController {
 			},
 		] );
 
+        register_rest_route( 'wp-force-repair/v1', '/core/tools/comment-stats', [
+			'methods'             => 'GET',
+			'callback'            => [ $this, 'get_comment_stats' ],
+			'permission_callback' => function () {
+				return current_user_can( 'manage_options' );
+			},
+		] );
+
+        register_rest_route( 'wp-force-repair/v1', '/core/tools/cleanup-comments', [
+			'methods'             => 'POST',
+			'callback'            => [ $this, 'cleanup_comments' ],
+			'permission_callback' => function () {
+				return current_user_can( 'manage_options' );
+			},
+		] );
+
 		register_rest_route( 'wp-force-repair/v1', '/core/reinstall', [
 			'methods'             => 'POST',
 			'callback'            => [ $this, 'handle_clean_reinstall' ],
@@ -498,5 +514,59 @@ class CoreController {
         }
 
         return new \WP_Error( 'update_failed', 'Failed to update wp-config.php. Pattern may not match.' );
+    }
+
+    public function get_comment_stats() {
+        $stats = wp_count_comments();
+        return new \WP_REST_Response( [
+            'spam'      => $stats->spam,
+            'trash'     => $stats->trash,
+            'moderated' => $stats->moderated, // Pending
+            'total_junk'=> $stats->spam + $stats->trash + $stats->moderated
+        ], 200 );
+    }
+
+    public function cleanup_comments( $request ) {
+        $type = $request->get_param( 'type' ); // spam, trash, moderated
+        
+        if ( ! in_array( $type, [ 'spam', 'trash', 'moderated' ] ) ) {
+            return new \WP_Error( 'invalid_type', 'Invalid comment type.' );
+        }
+
+        $args = [
+            'status' => $type === 'moderated' ? 'hold' : $type,
+            'number' => 100, // Process in batches if needed, but for now loop
+            'fields' => 'ids'
+        ];
+
+        // For massive amounts, we might need a safer query or loop
+        // but for a simple tool, standard WP_Comment_Query is fine.
+        // We'll delete up to 500 at a time to avoid timeout
+        $query = new \WP_Comment_Query;
+        $comments = $query->query( [
+            'status' => $type === 'moderated' ? 'hold' : $type,
+            'number' => 500,
+            'fields' => 'ids'
+        ] );
+
+        $count = 0;
+        foreach ( $comments as $comment_id ) {
+            wp_delete_comment( $comment_id, true ); // true = force delete
+            $count++;
+        }
+
+        // Check if more remain
+        $stats = wp_count_comments();
+        $remaining = 0;
+        if ( $type === 'spam' ) $remaining = $stats->spam;
+        if ( $type === 'trash' ) $remaining = $stats->trash;
+        if ( $type === 'moderated' ) $remaining = $stats->moderated;
+
+        return new \WP_REST_Response( [
+            'success' => true,
+            'deleted' => $count,
+            'remaining' => $remaining,
+            'message' => "Deleted $count $type comments." . ( $remaining > 0 ? " ($remaining remaining)" : "" )
+        ], 200 );
     }
 }
