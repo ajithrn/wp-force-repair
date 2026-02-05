@@ -19,56 +19,22 @@
 3. Upload the zip file and click "Install Now".
 4. Activate the plugin.
 
-## Development
+## Installation
 
-This plugin is built with React and `@wordpress/scripts`.
+1. Download the `wp-force-repair.zip` file.
+2. Go to your WordPress Dashboard -> Plugins -> Add New -> Upload Plugin.
+3. Upload the zip file and click "Install Now".
+4. Activate the plugin.
 
-### Prerequisites
+## contributing
 
-- Node.js (Latest LTS)
-- Composer (Optional, for PHP dependencies if expanded)
-
-### Setup
-
-```bash
-npm install
-```
-
-### Build
-
-To compile the frontend assets:
-
-```bash
-npm run build
-```
-
-### Dev Mode
-
-To watch for changes:
-
-```bash
-npm start
-```
-
-### Packaging
-
-To build assets and create a production-ready zip file in one step:
-
-```bash
-npm run package
-```
-
-To just zip (if already built):
-
-```bash
-npm run zip
-```
+Interested in developing or modifying this plugin? check out our [Developer Guide](docs/CONTRIBUTING.md).
 
 ## Roadmap
 
 We have exciting plans for the future of WP Force Repair, including Core File replacement and Database repair tools.
 
-👉 [View the full ROADMAP.md](ROADMAP.md)
+👉 [View the full ROADMAP.md](docs/ROADMAP.md)
 
 ## Credits
 

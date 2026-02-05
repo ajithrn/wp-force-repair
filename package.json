@@ -1,6 +1,6 @@
 {
   "name": "wp-force-repair",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -8,7 +8,7 @@
     "build": "wp-scripts build",
     "zip": "wp-scripts plugin-zip",
     "package": "npm run build && npm run zip",
-    "release": "node scripts/release.js",
+    "bump": "node scripts/bump-version.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

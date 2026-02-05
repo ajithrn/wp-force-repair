@@ -1,40 +1,95 @@
-name: Build & Release
+name: Auto Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
+    paths:
+      - 'package.json'
+      - 'wp-force-repair.php'
 
 permissions:
   contents: write
 
 jobs:
-  build-and-release:
+  check-and-release:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
 
-    - name: Install Dependencies
-      run: npm install
+      - name: Get Version
+        id: package-version
+        run: |
+          VERSION=$(jq -r .version package.json)
+          echo "Detected version: $VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-    - name: Build Assets
-      run: npm run build
+      - name: Check if tag exists
+        id: check-tag
+        uses: mukunku/tag-exists-action@v1.4.0
+        with: 
+          tag: 'v${{ steps.package-version.outputs.version }}'
 
-    - name: Create ZIP
-      run: npm run zip
+      - name: Auto-Bump Version
+        if: steps.check-tag.outputs.exists == 'true'
+        run: |
+          # 1. Parse current version
+          CURRENT_VERSION="${{ steps.package-version.outputs.version }}"
+          echo "Tag v$CURRENT_VERSION exists. Auto-bumping..."
+          
+          # 2. Increment Patch Version (SemVer)
+          IFS='.' read -r -a parts <<< "$CURRENT_VERSION"
+          major="${parts[0]}"
+          minor="${parts[1]}"
+          patch="${parts[2]}"
+          new_patch=$((patch + 1))
+          NEW_VERSION="$major.$minor.$new_patch"
+          echo "New Version: $NEW_VERSION"
+          
+          # 3. Update package.json
+          npm version $NEW_VERSION --no-git-tag-version
+          
+          # 4. Update wp-force-repair.php (Header and Constant)
+          # Update Header "Version: X.X.X"
+          sed -i "s/Version: $CURRENT_VERSION/Version: $NEW_VERSION/" wp-force-repair.php
+          # Update Constant "define( 'WFR_VERSION', 'X.X.X' );"
+          sed -i "s/define( 'WFR_VERSION', '$CURRENT_VERSION' );/define( 'WFR_VERSION', '$NEW_VERSION' );/" wp-force-repair.php
+          
+          # 5. Commit and Push
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git add package.json wp-force-repair.php
+          git commit -m "chore: auto-bump version to $NEW_VERSION"
+          git push origin main
+          
+          echo "Bumped to $NEW_VERSION and pushed. New workflow will trigger."
 
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: wp-force-repair.zip
-        generate_release_notes: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Dependencies
+        if: steps.check-tag.outputs.exists == 'false'
+        run: npm install
+
+      - name: Build Assets
+        if: steps.check-tag.outputs.exists == 'false'
+        run: npm run build
+
+      - name: Create ZIP
+        if: steps.check-tag.outputs.exists == 'false'
+        run: npm run zip
+
+      - name: Create Release
+        if: steps.check-tag.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.package-version.outputs.version }}
+          name: v${{ steps.package-version.outputs.version }}
+          files: wp-force-repair.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
