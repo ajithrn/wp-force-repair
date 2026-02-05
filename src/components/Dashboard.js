@@ -3,6 +3,7 @@ const apiFetch = wp.apiFetch;
 import icons from '../icons'; 
 import InstalledList from './InstalledList';
 import InstallerOverlay from './InstallerOverlay';
+import CoreManager from './CoreManager';
 
 const Dashboard = () => {
     const [ view, setView ] = useState( 'installed' ); 
@@ -96,11 +97,19 @@ const Dashboard = () => {
                 >
                     Installed Themes
                 </a>
+                <a 
+                    href="#" 
+                    className={`nav-tab ${ view === 'core' ? 'nav-tab-active' : '' }`}
+                    onClick={(e) => { e.preventDefault(); setView('core'); }}
+                >
+                    WordPress Core
+                </a>
             </h2>
 
             <div className="wfr-content-wrap" style={{ marginTop: '20px' }}>
                 { ( view === 'installed_plugins' || view === 'installed' ) && <InstalledList type="plugin" onReinstall={ handleInstall } /> }
                 { view === 'installed_themes' && <InstalledList type="theme" onReinstall={ handleInstall } /> }
+                { view === 'core' && <CoreManager /> }
             </div>
         </div>
     );

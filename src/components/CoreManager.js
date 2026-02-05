@@ -1,0 +1,318 @@
+const { useState, useEffect } = wp.element;
+const apiFetch = wp.apiFetch;
+import InstallerOverlay from './InstallerOverlay';
+
+const CoreManager = () => {
+    const [ status, setStatus ] = useState( null );
+    const [ loading, setLoading ] = useState( true );
+    const [ scanning, setScanning ] = useState( false );
+    const [ suspectedFiles, setSuspectedFiles ] = useState( [] );
+    const [ selectedFiles, setSelectedFiles ] = useState( [] );
+    const [ quarantinedData, setQuarantinedData ] = useState( [] );
+    
+    // Installer Overlay State
+    const [ isInstalling, setIsInstalling ] = useState( false );
+    const [ installLogs, setInstallLogs ] = useState( [] );
+    const [ installStatus, setInstallStatus ] = useState( 'processing' ); 
+    const [ installMessage, setInstallMessage ] = useState( '' );
+
+    useEffect( () => {
+        fetchStatus();
+        scanFiles();
+        fetchQuarantined(); // New: Fetch quarantined files
+    }, [] );
+
+    const fetchStatus = async () => {
+        try {
+            const data = await apiFetch( { path: '/wp-force-repair/v1/core/status' } );
+            setStatus( data );
+        } catch ( e ) {
+            console.error( e );
+        }
+        setLoading( false );
+    };
+
+    const scanFiles = async () => {
+        setScanning( true );
+        try {
+            const data = await apiFetch( { path: '/wp-force-repair/v1/core/scan', method: 'POST' } );
+            setSuspectedFiles( data.suspected_files || [] );
+        } catch ( e ) {
+            console.error( e );
+        }
+        setScanning( false );
+    };
+
+    const fetchQuarantined = async () => {
+        try {
+            const data = await apiFetch( { path: '/wp-force-repair/v1/core/quarantine/list' } );
+            setQuarantinedData( data || [] );
+        } catch ( e ) {
+            console.error( e );
+        }
+    };
+
+    const toggleSelectAll = ( e ) => {
+        if ( e.target.checked ) {
+            setSelectedFiles( suspectedFiles.map( f => f.name ) );
+        } else {
+            setSelectedFiles( [] );
+        }
+    };
+
+    const toggleFile = ( name ) => {
+        if ( selectedFiles.includes( name ) ) {
+            setSelectedFiles( selectedFiles.filter( f => f !== name ) );
+        } else {
+            setSelectedFiles( [ ...selectedFiles, name ] );
+        }
+    };
+
+    const handleQuarantine = async ( filesToQuarantine = null ) => {
+        const files = filesToQuarantine || selectedFiles;
+        if ( ! files.length ) return;
+        
+        // Custom message based on count
+        const msg = files.length === 1 
+            ? `Quarantine '${files[0]}'? It will be moved to a safe folder.` 
+            : `Quarantine ${files.length} files? They will be moved to a safe folder.`;
+
+        if ( ! confirm( msg ) ) return;
+
+        try {
+            const res = await apiFetch( {
+                path: '/wp-force-repair/v1/core/quarantine',
+                method: 'POST',
+                data: { files: files }
+            } );
+             
+            if ( res.success ) {
+                alert( `Successfully quarantined ${res.moved.length} files.` );
+                setSelectedFiles([]);
+                scanFiles(); // Refresh scan
+                fetchQuarantined(); // Refresh quarantine list
+            }
+        } catch ( e ) {
+            alert( 'Error: ' + e.message );
+        }
+    };
+
+    const handleRestore = async ( path ) => {
+        if ( ! confirm( `Restore this file to the root directory?\n\n${path}` ) ) return;
+        
+        try {
+            const res = await apiFetch( {
+                path: '/wp-force-repair/v1/core/restore',
+                method: 'POST',
+                data: { path: path }
+            } );
+            
+            if ( res.success ) {
+                alert( res.message );
+                scanFiles();
+                fetchQuarantined();
+            }
+        } catch ( e ) {
+            alert( 'Error: ' + e.message );
+        }
+    };
+
+    const handleDeleteQuarantined = async ( path ) => {
+        if ( ! confirm( `PERMANENTLY DELETE?\n\n${path}\n\nThis cannot be undone.` ) ) return;
+
+        try {
+            const res = await apiFetch( {
+                path: '/wp-force-repair/v1/core/quarantine/delete',
+                method: 'POST', // Actually delete usually uses DELETE but we use POST for consistency with other actions here easily
+                data: { path: path }
+            } );
+
+            if ( res.success ) {
+                fetchQuarantined(); // Refresh list
+            }
+        } catch ( e ) {
+             alert( 'Error: ' + e.message );
+        }
+    };
+
+    const handleReinstall = async () => {
+        if ( ! confirm( "WARNING: This will replace all WordPress Core files.\n\n- 'wp-admin' & 'wp-includes' will be replaced.\n- Root PHP files will be overwritten.\n- Unknown root files will be Quarantined.\n\nYour 'wp-content' and 'wp-config.php' are SAFE.\n\nProceed?" ) ) {
+            return;
+        }
+
+        setIsInstalling( true );
+        setInstallStatus( 'processing' );
+        setInstallLogs( [ 'Initiating Safe Core Reinstall...', 'Verifying backup integrity...' ] );
+
+        try {
+            const res = await apiFetch( {
+                path: '/wp-force-repair/v1/core/reinstall',
+                method: 'POST',
+                data: { version: status?.latest_version || 'latest' }
+            } );
+
+            if ( res.success ) {
+                setInstallStatus( 'success' );
+                setInstallMessage( 'WordPress Core successfully re-installed.' );
+                if ( res.logs ) setInstallLogs( prev => [ ...prev, ...res.logs ] );
+                scanFiles();
+                fetchQuarantined();
+            }
+        } catch ( e ) {
+            setInstallStatus( 'error' );
+            setInstallMessage( e.message || 'Reinstall failed.' );
+            if ( e.logs ) setInstallLogs( prev => [ ...prev, ...e.logs ] );
+        }
+    };
+
+    const closeOverlay = () => {
+        setIsInstalling( false );
+        setInstallLogs( [] );
+        fetchStatus();
+        scanFiles();
+    };
+
+    if ( loading ) return <div className="wfr-loading">Loading Core Status...</div>;
+
+    return (
+        <div className="wfr-view-container">
+            <InstallerOverlay 
+                isOpen={ isInstalling }
+                logs={ installLogs }
+                status={ installStatus }
+                message={ installMessage }
+                onClose={ closeOverlay }
+                progress={ ""} 
+            />
+
+            <div className="wfr-section-header" style={{ marginTop: '10px' }}>
+                <h2 className="title">WordPress Core Manager</h2>
+            </div>
+            
+            <div className="wfr-core-status-card postbox" style={{ padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                    <h3 style={{ margin: '0 0 10px 0' }}>Current Version: { status?.version }</h3>
+                    <p style={{ margin: 0, color: status?.has_update ? '#d63638' : '#00a32a', fontWeight: 600 }}>
+                        { status?.has_update ? 'Update Available (' + status.latest_version + ')' : 'You are on the latest version.' }
+                    </p>
+                    <p style={{ margin: '5px 0 0 0', color: '#666', fontSize: '13px' }}>Locale: { status?.locale }</p>
+                </div>
+                <div>
+                     <button className="button button-primary button-hero" onClick={ handleReinstall }>
+                        Force Re-install Core
+                     </button>
+                     <p className="description" style={{ textAlign: 'center', marginTop: '5px' }}>SAFE: Preserves wp-content & config</p>
+                </div>
+            </div>
+
+            <div className="wfr-system-tools-card card" style={{ marginTop: '20px', padding: '15px' }}>
+                <h3 style={{ marginTop: 0 }}>System Health Tools</h3>
+                <div style={{ display: 'flex', gap: '15px' }}>
+                    <button className="button button-secondary" onClick={ async () => {
+                        if( confirm('Flush Permalinks?') ) {
+                            try {
+                                const res = await apiFetch({ path: '/wp-force-repair/v1/core/tools/flush-permalinks', method: 'POST' });
+                                alert( res.message );
+                            } catch(e) { alert(e.message); }
+                        }
+                    }}>
+                        Flush Permalinks
+                    </button>
+                    
+                     <button className="button button-secondary" onClick={ async () => {
+                        if( confirm('Regenerate .htaccess?\n\nA backup of your current .htaccess will be created.') ) {
+                            try {
+                                const res = await apiFetch({ path: '/wp-force-repair/v1/core/tools/regenerate-htaccess', method: 'POST' });
+                                alert( res.message + ( res.backup ? '\n' + res.backup : '' ) );
+                            } catch(e) { alert(e.message); }
+                        }
+                    }}>
+                        Regenerate .htaccess
+                    </button>
+                </div>
+            </div>
+
+            <div className="wfr-scan-section card" style={{ marginTop: '20px', padding: '15px' }}>
+                <h3 style={{ marginTop: 0 }}>File Integrity Scan (Root Directory)</h3>
+                <p>The following files were found in your root directory but are <strong>not</strong> standard WordPress files.</p>
+                
+                { scanning ? <p>Scanning...</p> : (
+                    <>
+                        <div className="wfr-bulk-bar" style={{ padding: '10px 0', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                            <label><input type="checkbox" onChange={ toggleSelectAll } checked={ suspectedFiles.length > 0 && selectedFiles.length === suspectedFiles.length } /> Select All</label>
+                            
+                            <button className="button button-secondary" disabled={ ! selectedFiles.length } onClick={ () => handleQuarantine() }>
+                                Quarantine Selected ({selectedFiles.length})
+                            </button>
+                        </div>
+                        
+                        <table className="wp-list-table widefat fixed striped">
+                            <thead>
+                                <tr>
+                                    <td className="check-column"><input type="checkbox" disabled /></td>
+                                    <th>Filename</th>
+                                    <th>Type</th>
+                                    <th>Size</th>
+                                    <th>Modified</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                { suspectedFiles.length === 0 ? (
+                                    <tr><td colSpan="6">No unknown files found. Your root directory is clean.</td></tr>
+                                ) : (
+                                    suspectedFiles.map( ( file, i ) => (
+                                        <tr key={ i }>
+                                            <th className="check-column">
+                                                <input type="checkbox" checked={ selectedFiles.includes( file.name ) } onChange={ () => toggleFile( file.name ) } />
+                                            </th>
+                                            <td><span style={{ color: '#d63638', fontWeight: 500 }}>{ file.name }</span></td>
+                                            <td>{ file.type }</td>
+                                            <td>{ file.size }</td>
+                                            <td>{ file.mtime }</td>
+                                            <td>
+                                                <button className="button button-small" onClick={ () => handleQuarantine( [ file.name ] ) }>Quarantine</button>
+                                            </td>
+                                        </tr>
+                                    ) )
+                                )}
+                            </tbody>
+                        </table>
+                    </>
+                )}
+            </div>
+
+            {/* Quarantine Viewer */}
+            { quarantinedData.length > 0 && (
+                <div className="wfr-quarantine-section card" style={{ marginTop: '20px', padding: '15px' }}>
+                    <h3 style={{ marginTop: 0 }}>Quarantined Files</h3>
+                    <p>Files moved here are safe and inactive. You can restore them if needed.</p>
+                    
+                    { quarantinedData.map( ( q, i ) => (
+                        <div key={ i } style={{ marginBottom: '15px' }}>
+                            <h4 style={{ margin: '0 0 5px 0', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
+                                📁 Backup: { q.timestamp }
+                            </h4>
+                            <table className="wp-list-table widefat fixed striped" style={{ marginTop: '5px' }}>
+                                <tbody>
+                                    { q.files.map( ( file, j ) => (
+                                        <tr key={ j }>
+                                            <td>{ file.name }</td>
+                                            <td>{ file.size }</td>
+                                            <td style={{ textAlign: 'right' }}>
+                                                <button className="button button-small" onClick={ () => handleRestore( file.path ) } style={{ marginRight: '5px' }}>Restore</button>
+                                                <button className="button button-small button-link-delete" onClick={ () => handleDeleteQuarantined( file.path ) } style={{ color: '#a00' }}>Delete Permanently</button>
+                                            </td>
+                                        </tr>
+                                    ) ) }
+                                </tbody>
+                            </table>
+                        </div>
+                    ) ) }
+                </div>
+            ) }
+        </div>
+    );
+};
+
+export default CoreManager;

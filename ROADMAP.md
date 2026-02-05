@@ -7,16 +7,19 @@
 - [x] **Delete Support**: Safely delete installed plugins and themes.
 - [x] **Premium UI**: Modern, glassmorphism-inspired interface with real-time terminal feedback.
 
-## Phase 2: Site Recovery & Core Repair (Planned)
+## Phase 2: Site Recovery & Core Repair (Completed)
 
-- [ ] **Core File Replacement**:
-  - Download latest WordPress Core.
-  - Smart logic to preserve `wp-config.php` and `wp-content` folder.
-  - Parser to extract DB credentials and regenerate salts if config is compromised.
-- [ ] **Filesystem Verification**:
-  - Scan root directory for non-core (suspicious) files.
-  - Scan `wp-content` for unauthorized scripts.
-  - Bulk delete tool for cleanup.
+- [x] **Core Reinstall Manager**:
+  - [x] Download and install latest WordPress Core safely.
+  - [x] Integrity Scan: Detects unknown files in root directory.
+  - [x] Auto-Quarantine: Automatically moves suspicious files to a safe location before reinstall.
+- [x] **Quarantine Manager**:
+  - [x] View list of quarantined files/backups.
+  - [x] Restore files to original location.
+  - [x] Permanently delete suspicious files.
+- [x] **System Health Tools**:
+  - [x] Flush Permalinks.
+  - [x] Regenerate `.htaccess`.
 
 ## Phase 3: Database Repair & Optimization (Planned)
 
@@ -27,3 +30,9 @@
   - Remove expired transients.
   - Clean orphaned Post Meta and Term Relationships.
   - Drop unknown/spam tables (with backup options).
+
+## Phase 4: Automation & CLI (Future)
+
+- [ ] **WP-CLI Support**: Run repair commands via terminal.
+- [ ] **Scheduled Scans**: Daily integrity checks.
+- [ ] **Email Alerts**: Notify admin on file changes.

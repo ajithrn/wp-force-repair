@@ -1,7 +1,5 @@
 # WP Force Repair
 
-![WP Force Repair Logo](assets/logo.png)
-
 **WP Force Repair** is a specialized recovery tool designed to fix hacked or broken WordPress sites. It allows you to safely force re-install, update, or replace plugins and themes directly from the official repository, verifying file integrity.
 
 ## Features
@@ -9,6 +7,8 @@
 - **Repo Browser**: Search and browse plugins and themes from the official WordPress.org repository.
 - **Force Install**: Re-install existing plugins/themes or install new ones, forcibly overwriting existing files if necessary.
 - **Delete Support**: Safely delete installed plugins and themes directly from the dashboard.
+- **Core Manager**: Forced re-installation of WordPress Core, integrity scans, and quarantine management for suspicious root files.
+- **System Health**: Tools to flush permalinks and regenerate `.htaccess`.
 - **Premium UI**: A darker, modern interface built with React and scoped CSS (Isolation).
 - **Real-time Feedback**: Live terminal logs during installation processes.
 

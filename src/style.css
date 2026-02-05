@@ -97,8 +97,8 @@
 .wfr-modal {
   background: #1e1e1e;
   color: #fff;
-  width: 600px;
-  max-width: 90vw;
+  width: 90%;
+  max-width: 1200px;
   border-radius: 6px;
   overflow: hidden;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
