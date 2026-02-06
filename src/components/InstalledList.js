@@ -185,8 +185,13 @@ const InstalledList = ( { type, onReinstall } ) => {
 
     return (
         <div className="wfr-view-container">
-            <div className="wfr-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', marginBottom: '10px' }}>
-                <h2 className="title" style={{ margin: 0 }}>Installed { type === 'plugin' ? 'Plugins' : 'Themes' }</h2>
+            <div className="wfr-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', marginBottom: '20px' }}>
+                <div>
+                    <h2 className="title" style={{ margin: 0 }}>Installed { type === 'plugin' ? 'Plugins' : 'Themes' }</h2>
+                    <p className="description" style={{ marginTop: '5px' }}>
+                        { type === 'plugin' ? 'Manage your installed plugins. Force re-install or delete them safely.' : 'Manage your installed themes. Force re-install or delete them safely.' }
+                    </p>
+                </div>
                 { selected.length > 0 && (
                     <button className="button button-secondary" onClick={ handleBulkReinstall }>
                         Force Update Selected ({selected.length})

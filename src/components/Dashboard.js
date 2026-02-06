@@ -5,6 +5,7 @@ import InstalledList from './InstalledList';
 import InstallerOverlay from './InstallerOverlay';
 import CoreManager from './CoreManager';
 import SystemHealth from './SystemHealth';
+import Help from './Help';
 
 const Dashboard = () => {
     const [ view, setView ] = useState( 'installed' ); 
@@ -14,7 +15,7 @@ const Dashboard = () => {
     const [ installLogs, setInstallLogs ] = useState( [] );
     const [ installStatus, setInstallStatus ] = useState( 'processing' ); // processing, success, error
     const [ installMessage, setInstallMessage ] = useState( '' );
-    const [ installProgress, setInstallProgress ] = useState( '' ); // e.g. "1/5"
+    const [ installProgress, setInstallProgress ] = useState( '' );
 
     const handleInstall = async ( slug, type, download_link, progress = '' ) => {
         setIsInstalling( true );
@@ -62,8 +63,6 @@ const Dashboard = () => {
         }
     };
 
-    // ...
-
     const closeOverlay = () => {
         setIsInstalling( false );
         setInstallLogs( [] );
@@ -72,7 +71,6 @@ const Dashboard = () => {
 
     return (
         <div className="wrap">
-            {/* ... */}
             <InstallerOverlay 
                 isOpen={ isInstalling }
                 logs={ installLogs }
@@ -81,7 +79,6 @@ const Dashboard = () => {
                 progress={ installProgress }
                 onClose={ closeOverlay }
             />
-            {/* ... */}
 
             <h2 className="nav-tab-wrapper">
                 <a 
@@ -112,6 +109,13 @@ const Dashboard = () => {
                 >
                     Tools
                 </a>
+                <a 
+                    href="#" 
+                    className={`nav-tab ${ view === 'help' ? 'nav-tab-active' : '' }`}
+                    onClick={(e) => { e.preventDefault(); setView('help'); }}
+                >
+                    Help & Support
+                </a>
             </h2>
 
             <div className="wfr-content-wrap" style={{ marginTop: '20px' }}>
@@ -119,6 +123,7 @@ const Dashboard = () => {
                 { view === 'installed_themes' && <InstalledList type="theme" onReinstall={ handleInstall } /> }
                 { view === 'core' && <CoreManager /> }
                 { view === 'system_health' && <SystemHealth /> }
+                { view === 'help' && <Help /> }
             </div>
         </div>
     );

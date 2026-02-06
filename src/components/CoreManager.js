@@ -252,7 +252,7 @@ const CoreManager = () => {
         scanFiles();
     };
 
-    if ( loading ) return <div className="wfr-loading">Loading Core Status...</div>;
+    if ( loading ) return <div className="notice notice-info inline is-dismissible" style={{ marginTop: '20px' }}><p>Loading Core Status...</p></div>;
 
     return (
         <div className="wfr-view-container">
@@ -265,8 +265,9 @@ const CoreManager = () => {
                 progress={ ""} 
             />
 
-            <div className="wfr-section-header" style={{ marginTop: '10px' }}>
+            <div className="wfr-section-header" style={{ marginTop: '10px', marginBottom: '20px' }}>
                 <h2 className="title">WordPress Core Manager</h2>
+                <p className="description">Scan your core files for integrity, restore modified files, or force a clean re-install of WordPress.</p>
             </div>
             
             <div className="wfr-core-status-card postbox" style={{ padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

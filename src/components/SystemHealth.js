@@ -57,7 +57,7 @@ const SystemHealth = () => {
 
     return (
         <div className="wfr-system-health-view" style={{ marginTop: '20px' }}>
-             <div className="wfr-section-header">
+             <div className="wfr-section-header" style={{ marginBottom: '20px' }}>
                 <h2 className="title">System Tools</h2>
                 <p className="description">Use these tools to fix common configuration errors, perform maintenance, and manage backups.</p>
             </div>
