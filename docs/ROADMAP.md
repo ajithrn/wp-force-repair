@@ -24,7 +24,17 @@
   - [x] **Comment Cleanup**: Bulk delete Spam/Pending comments.
   - [x] **Reset File Permissions**: Fix folders (755) and files (644).
 
-## Phase 3: Database Repair & Optimization (Planned)
+  - [x] **Reset File Permissions**: Fix folders (755) and files (644).
+
+## Phase 2.5: Backup Manager (Planned)
+
+- [ ] **Full Site Backup**:
+  - Download entire root directory as ZIP.
+  - Smart exclusions (node_modules, .git, existing backups).
+- [ ] **Database Backup**:
+  - Export full database (SQL dump).
+  - Support for `mysqldump` (fast) with PHP fallback (compatible).
+  - Gzip compression.
 
 - [ ] **Database Health Check**:
   - Structural integrity check of Core Tables.

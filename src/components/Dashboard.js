@@ -110,7 +110,7 @@ const Dashboard = () => {
                     className={`nav-tab ${ view === 'system_health' ? 'nav-tab-active' : '' }`}
                     onClick={(e) => { e.preventDefault(); setView('system_health'); }}
                 >
-                    System Health
+                    Tools
                 </a>
             </h2>
 

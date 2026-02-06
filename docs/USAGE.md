@@ -30,13 +30,21 @@ The **Integrity Scan** automatically checks for suspicious files in your root di
 * **Quarantine**: Move suspicious files to safe isolation (`wp-content/uploads/wfr-quarantine/`).
 * **Restore**: If you mistakenly quarantined a valid file, you can restore it from the Quarantine section.
 
-### 4. System Health Tools
+### 4. System Tools
 
 Fix common issues with one click:
 
 * **Flush Permalinks**: Fixes 404 "Page Not Found" errors.
 * **Reset Permissions**: Fixes "403 Forbidden" errors or file upload issues by resetting folders to 755 and files to 644.
 * **Regenerate Salts**: Logs out all users and invalidates cookies (useful if site hacked).
+
+### 5. Backup Manager (Beta)
+
+Before making major repairs, it is always safe to take a backup.
+
+* **Download Files**: Creates a zip of your entire root directory (`backup-{site-name}-files-{date}.zip`).
+* **Download Database**: Exports your database as a SQL file (`backup-{site-name}-db-{date}.sql` or `.zip`).
+* **Auto-Cleanup**: After downloading, the plugin will ask if you want to delete the backup file from the server. We recommend clicking **Delete** to save space and keep your server clean.
 
 ---
 

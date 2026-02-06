@@ -144,7 +144,7 @@ const CoreManager = () => {
             const res = await apiFetch({ path: `/wp-force-repair/v1/core/tools/view-file?file=${file.name}` });
             MySwal.fire({
                 title: file.name,
-                html: `<pre style="text-align:left; max-height:400px; overflow:auto; background:#f0f0f1; padding:10px; border-radius:4px; font-size: 12px;">${res.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`,
+                html: `<pre style="text-align:left; max-height:400px; overflow:auto; background:#f0f0f1; padding:10px; border-radius:4px; font-size: 12px;">${String(res.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`,
                 width: '800px',
                 showConfirmButton: true,
                 confirmButtonText: 'Close'

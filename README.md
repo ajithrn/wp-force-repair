@@ -11,12 +11,18 @@
   - **Integrity Scan**: Instantly detected non-standard files in your root directory.
   - **File Viewer**: Inspect suspicious files directly within the dashboard before deleting or quarantining.
   - **Quarantine System**: Isolate suspicious files, restore them if needed, or permanently delete them.
-- **System Health Tools**:
+- **System Tools**:
   - **Flush Permalinks**: Fixes 404 errors by resetting rewrite rules.
   - **Regenerate .htaccess**: Recreates your `.htaccess` file with a backup.
   - **Regenerate Salt Keys**: Refreshes security keys in `wp-config.php` and forces a logout for all users.
   - **Comment Cleanup**: Bulk delete Spam, Trash, or Pending comments.
   - **Reset Permissions**: Recursively fixes file (644) and folder (755) permissions.
+
+- **Backup Manager (Beta)**:
+  - **Full File Backup**: Download your entire WordPress root directory as a ZIP (smartly excludes backups and node_modules).
+  - **Database Dump**: Export your full database (SQL) using fast `mysqldump` or robust PHP fallback mode.
+  - **Auto-Cleanup**: Prompts to delete backup files immediately after download to save space.
+
 - **Native UI**: A clean, familiar interface built with React that integrates seamlessly with the standard WordPress dashboard.
 
 ## Installation

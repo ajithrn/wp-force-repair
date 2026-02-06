@@ -58,8 +58,8 @@ const SystemHealth = () => {
     return (
         <div className="wfr-system-health-view" style={{ marginTop: '20px' }}>
              <div className="wfr-section-header">
-                <h2 className="title">System Health & Repair</h2>
-                <p className="description">Use these tools to fix common configuration and 404 errors.</p>
+                <h2 className="title">System Tools</h2>
+                <p className="description">Use these tools to fix common configuration errors, perform maintenance, and manage backups.</p>
             </div>
 
              <div className="wfr-system-tools-card card" style={{ marginTop: '20px', padding: '20px', maxWidth: '100%' }}>
@@ -171,8 +171,110 @@ const SystemHealth = () => {
                     </button>
                 </div>
             </div>
+
+            <BackupManager />
         </div>
     );
 };
+
+const BackupManager = () => {
+    const [ caps, setCaps ] = useState(null);
+    const [ working, setWorking ] = useState(false);
+
+    useEffect( () => {
+        apiFetch({ path: '/wp-force-repair/v1/backup/capabilities' })
+            .then( setCaps )
+            .catch( console.error );
+    }, [] );
+
+    const handleBackup = async ( type ) => {
+        setWorking(true);
+        MySwal.fire({
+            title: type === 'db' ? 'Exporting Database...' : 'Zipping Files...',
+            html: 'This may take a while for large sites.<br/>Please do not close this window.',
+            didOpen: () => MySwal.showLoading(),
+            allowOutsideClick: false
+        });
+
+        try {
+            const res = await apiFetch({ 
+                path: '/wp-force-repair/v1/backup/create', 
+                method: 'POST',
+                data: { type: type }
+            });
+
+            if ( res.success ) {
+                await MySwal.fire({
+                    title: 'Backup Ready!',
+                    html: `
+                        <p>Your backup is ready for download.</p>
+                        <a href="${res.url}" class="button button-primary button-hero" target="_blank" download>Download Backup</a>
+                        <p style="margin-top: 15px; font-size: 12px; color: #666;">
+                            File: ${res.file}<br/>
+                            <strong style="color: #d63638">Important:</strong> Please delete this file after downloading to save space and security.
+                        </p>
+                    `,
+                    icon: 'success',
+                    showCancelButton: true,
+                    cancelButtonText: 'Delete Backup Now',
+                    confirmButtonText: 'I have downloaded it'
+                }).then( (result) => {
+                    if ( result.dismiss === Swal.DismissReason.cancel || result.isConfirmed ) {
+                        // Cleanup
+                         apiFetch({ 
+                            path: '/wp-force-repair/v1/backup/delete', 
+                            method: 'POST',
+                            data: { file: res.file }
+                        });
+                        if ( result.dismiss === Swal.DismissReason.cancel ) {
+                            MySwal.fire('Deleted', 'Backup file removed from server.', 'success');
+                        }
+                    }
+                });
+            }
+        } catch(e) {
+            MySwal.fire( 'Backup Failed', e.message || 'Unknown Error', 'error' );
+        }
+        setWorking(false);
+    };
+
+    return (
+        <div className="wfr-system-tools-card card" style={{ marginTop: '20px', padding: '20px', maxWidth: '100%' }}>
+            <h3 style={{ marginTop: 0 }}>Backup Manager (Beta)</h3>
+            <p>Download a full backup of your site or database before making repairs.</p>
+            
+            <div style={{ marginTop: '10px', marginBottom: '15px' }}>
+                { caps ? (
+                    <div style={{ fontSize: '12px', display: 'flex', gap: '15px' }}>
+                        <span style={{ color: caps.zip_archive ? 'green' : 'red' }}>
+                             { caps.zip_archive ? '✔ ZipArchive Supported' : '✖ ZipArchive Missing' }
+                        </span>
+                        <span style={{ color: caps.shell_exec ? 'green' : 'orange' }}>
+                             { caps.shell_exec ? '✔ Fast DB Dump (Shell)' : '⚠ Slow DB Dump (PHP Fallback)' }
+                        </span>
+                    </div>
+                ) : 'Checking server capabilities...' }
+            </div>
+
+            <div style={{ display: 'flex', gap: '15px', marginTop: '15px' }}>
+                 <button 
+                    className="button button-secondary button-hero" 
+                    disabled={ working || ! caps?.zip_archive } 
+                    onClick={ () => handleBackup('files') }
+                >
+                    Download Files (ZIP)
+                </button>
+                <button 
+                    className="button button-secondary button-hero" 
+                    disabled={ working } 
+                    onClick={ () => handleBackup('db') }
+                >
+                    Download Database (SQL)
+                </button>
+            </div>
+        </div>
+    );
+};
+
 
 export default SystemHealth;
