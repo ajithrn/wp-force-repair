@@ -8,10 +8,6 @@ const MySwal = withReactContent(Swal);
 const Help = () => {
     const faqs = [
         {
-            q: 'How does "Rescue Mode" work?',
-            a: 'Rescue Mode is a standalone script that does NOT load WordPress. If your site has a "White Screen of Death", you can access this special page to disable plugins or switch themes manually. <br/><br/><strong>To activate:</strong> Rename <code>rescue/index.php.disabled</code> to <code>index.php</code> via FTP, then visit <code>yoursite.com/wp-content/plugins/wp-force-repair/rescue/</code>.'
-        },
-        {
             q: 'Is the "Force Re-install" safe?',
             a: 'Yes. It forces WordPress to download a fresh copy of the plugin/theme from the official repository and overwrites your current files. This cleans up any corrupted or infected files. Your settings (database) are preserving.'
         },
