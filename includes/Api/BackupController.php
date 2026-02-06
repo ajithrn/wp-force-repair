@@ -171,18 +171,41 @@ class BackupController extends \WP_REST_Controller {
     }
 
     private function zip_files( $output_file ) {
+        $rootPath = realpath( ABSPATH );
+        $excludes = [ 'node_modules', '.git', 'wfr-backups' ];
+        
+        // 1. Try Shell Exec (Fastest, Robust)
+        if ( function_exists( 'shell_exec' ) && ! in_array( 'shell_exec', array_map( 'trim', explode( ',', ini_get( 'disable_functions' ) ) ) ) ) {
+            $exclude_args = '';
+            foreach ($excludes as $ex) {
+                $exclude_args .= " -x '*/$ex/*'"; // Standard zip exclude pattern
+            }
+            // Add filename itself to excludes to prevent recursion
+            $exclude_args .= " -x '" . basename($output_file) . "'";
+
+            // Command: zip -r /path/to/backup.zip . -x ...
+            $cmd = "cd " . escapeshellarg($rootPath) . " && zip -r " . escapeshellarg($output_file) . " . $exclude_args";
+            
+            // Run in background? No, we need to know it finished.
+            // But large sites might still timeout via PHP. 
+            // We'll trust shell_exec is fast enough for now.
+            shell_exec($cmd);
+
+            if ( file_exists( $output_file ) && filesize( $output_file ) > 100 ) {
+                return; // Success
+            }
+        }
+
+        // 2. Fallback: PHP ZipArchive (Memory Intensive)
         $zip = new \ZipArchive();
         if ( $zip->open( $output_file, \ZipArchive::CREATE | \ZipArchive::OVERWRITE ) !== TRUE ) {
             throw new \Exception( "Cannot create zip file." );
         }
 
-        $rootPath = realpath( ABSPATH );
         $files = new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator( $rootPath ),
             \RecursiveIteratorIterator::LEAVES_ONLY
         );
-
-        $excludes = [ 'node_modules', '.git', 'wfr-backups' ];
 
         $count = 0;
         foreach ( $files as $name => $file ) {
@@ -203,7 +226,7 @@ class BackupController extends \WP_REST_Controller {
         
         if ( $count === 0 ) {
             $zip->close();
-            unlink($output_file);
+            if (file_exists($output_file)) unlink($output_file);
             throw new \Exception("No files found to zip. Check permissions or path.");
         }
 
@@ -226,6 +249,7 @@ class BackupController extends \WP_REST_Controller {
             return new \WP_REST_Response( [ 'success' => true ], 200 );
         }
         
-        return new \WP_Error( 'file_not_found', 'File not found.' );
+        // Return 404 for missing file, not 500
+        return new \WP_Error( 'file_not_found', 'File not found.', [ 'status' => 404 ] );
     }
 }
