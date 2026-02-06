@@ -184,6 +184,7 @@ class BackupController extends \WP_REST_Controller {
 
         $excludes = [ 'node_modules', '.git', 'wfr-backups' ];
 
+        $count = 0;
         foreach ( $files as $name => $file ) {
             if ( $file->isDir() ) continue;
 
@@ -195,10 +196,25 @@ class BackupController extends \WP_REST_Controller {
                 if ( strpos( $relativePath, $exclude ) !== false ) continue 2;
             }
 
-            $zip->addFile( $filePath, $relativePath );
+            if ( $zip->addFile( $filePath, $relativePath ) ) {
+                $count++;
+            }
+        }
+        
+        if ( $count === 0 ) {
+            $zip->close();
+            unlink($output_file);
+            throw new \Exception("No files found to zip. Check permissions or path.");
         }
 
-        $zip->close();
+        if ( $zip->close() !== TRUE ) {
+            if (file_exists($output_file)) unlink($output_file);
+            throw new \Exception( "ZipArchive::close() failed. Disk full or write permission denied." );
+        }
+        
+        if ( ! file_exists( $output_file ) || filesize( $output_file ) < 100 ) {
+             throw new \Exception( "Zip file created but is empty or missing directly after close." );
+        }
     }
 
     public function delete_backup( $request ) {
