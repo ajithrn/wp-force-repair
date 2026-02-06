@@ -65,6 +65,11 @@ class BackupController extends \WP_REST_Controller {
         
         $site_name = sanitize_title( get_bloginfo( 'name' ) );
         if ( empty( $site_name ) ) $site_name = 'site';
+        
+        // Prevent session locking
+        if ( session_status() === PHP_SESSION_ACTIVE ) {
+            session_write_close();
+        }
 
         $filename = 'backup-' . $site_name . '-' . $type . '-' . date('Y-m-d_H-i-s');
         $file_path = '';
@@ -74,6 +79,7 @@ class BackupController extends \WP_REST_Controller {
                 $filename .= '.sql';
                 $file_path = $this->backup_dir . $filename;
                 $this->dump_database( $file_path );
+                
                 // Compress if zip available
                 if ( class_exists( 'ZipArchive' ) ) {
                     $zip = new \ZipArchive();

@@ -52,5 +52,6 @@
   - **Rescue Theme**: Force switch to default theme (Twenty*).
   - **Core/Plugin Reinstall**: Reinstall without admin access.
   - **Force Install**: Upload ZIPs directly.
+  - **Emergency Backup**: Dump Database (SQL) & Zip Files (essential before repairs).
   - **Root File Manager**: Manage files via web interface.
   - **Rescue Admin**: Create emergency admin user via SQL.

@@ -189,9 +189,15 @@ const BackupManager = () => {
 
     const handleBackup = async ( type ) => {
         setWorking(true);
+        
+        const title = type === 'db' ? 'Backing up Database...' : 'Backing up Files...';
+        const message = type === 'db' 
+            ? 'Exporting database tables and securing data...' 
+            : 'Compressing site files into a ZIP archive...';
+
         MySwal.fire({
-            title: type === 'db' ? 'Exporting Database...' : 'Zipping Files...',
-            html: 'This may take a while for large sites.<br/>Please do not close this window.',
+            title: title,
+            html: `<div style="margin-top:10px; font-weight:500;">${message}</div><div style="margin-top:5px; font-size:12px; color:#666">Please do not close this window.</div>`,
             didOpen: () => MySwal.showLoading(),
             allowOutsideClick: false
         });
@@ -202,7 +208,7 @@ const BackupManager = () => {
                 method: 'POST',
                 data: { type: type }
             });
-
+            
             if ( res.success ) {
                 await MySwal.fire({
                     title: 'Backup Ready!',
