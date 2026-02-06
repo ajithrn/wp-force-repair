@@ -171,35 +171,53 @@ class BackupController extends \WP_REST_Controller {
     }
 
     private function zip_files( $output_file ) {
+        // IMPROVEMENT: Prevent client disconnect from killing process
+        ignore_user_abort( true );
+        
         $rootPath = realpath( ABSPATH );
         $excludes = [ 'node_modules', '.git', 'wfr-backups' ];
+        $disk_space_msg = '';
+
+        // Check disk space if possible
+        if ( function_exists( 'disk_free_space' ) ) {
+            $free = @disk_free_space( dirname( $output_file ) );
+            if ( $free !== false && $free < 100 * 1024 * 1024 ) { // Less than 100MB
+                $disk_space_msg = " [WARNING: Low Disk Space: " . size_format( $free ) . "]";
+            }
+        }
         
         // 1. Try Shell Exec (Fastest, Robust)
         if ( function_exists( 'shell_exec' ) && ! in_array( 'shell_exec', array_map( 'trim', explode( ',', ini_get( 'disable_functions' ) ) ) ) ) {
             $exclude_args = '';
             foreach ($excludes as $ex) {
-                $exclude_args .= " -x '*/$ex/*'"; // Standard zip exclude pattern
+                $exclude_args .= " -x '*/$ex/*'";
             }
-            // Add filename itself to excludes to prevent recursion
             $exclude_args .= " -x '" . basename($output_file) . "'";
 
-            // Command: zip -r /path/to/backup.zip . -x ...
-            $cmd = "cd " . escapeshellarg($rootPath) . " && zip -r " . escapeshellarg($output_file) . " . $exclude_args";
+            // Capture stderr to see WHY it fails (e.g. zip command not found)
+            $cmd = "cd " . escapeshellarg($rootPath) . " && zip -r " . escapeshellarg($output_file) . " . $exclude_args 2>&1";
             
-            // Run in background? No, we need to know it finished.
-            // But large sites might still timeout via PHP. 
-            // We'll trust shell_exec is fast enough for now.
-            shell_exec($cmd);
+            $output = shell_exec($cmd);
 
+            // Verify success
             if ( file_exists( $output_file ) && filesize( $output_file ) > 100 ) {
                 return; // Success
             }
+
+            // Log output if failed (for debugging)
+            // If the command returned something (error), we can maybe return it in the exception?
+            // But let's proceed to fallback first, but keep this in mind.
+            // Improve: If output says "command not found", then fallback is valid.
+            // If output says "disk full", fallback will likely fail too.
         }
 
-        // 2. Fallback: PHP ZipArchive (Memory Intensive)
+        // 2. Fallback: PHP ZipArchive (Memory & I/O Intensive)
         $zip = new \ZipArchive();
-        if ( $zip->open( $output_file, \ZipArchive::CREATE | \ZipArchive::OVERWRITE ) !== TRUE ) {
-            throw new \Exception( "Cannot create zip file." );
+        $code = $zip->open( $output_file, \ZipArchive::CREATE | \ZipArchive::OVERWRITE );
+        
+        if ( $code !== TRUE ) {
+            $err = $this->get_zip_error_message( $code );
+            throw new \Exception( "Cannot create zip file. Error: $err" . $disk_space_msg );
         }
 
         $files = new \RecursiveIteratorIterator(
@@ -212,6 +230,8 @@ class BackupController extends \WP_REST_Controller {
             if ( $file->isDir() ) continue;
 
             $filePath = $file->getRealPath();
+            
+            // Fix: Windows path support? Not detected issue here but good practice.
             $relativePath = substr( $filePath, strlen( $rootPath ) + 1 );
 
             // Check exclusions
@@ -219,24 +239,46 @@ class BackupController extends \WP_REST_Controller {
                 if ( strpos( $relativePath, $exclude ) !== false ) continue 2;
             }
 
-            if ( $zip->addFile( $filePath, $relativePath ) ) {
-                $count++;
+            // Attempt to add
+            if ( ! $zip->addFile( $filePath, $relativePath ) ) {
+                // If adding fails, usually file lock or permission
+                continue; 
             }
+            $count++;
+            
+            // Flush periodically? No, ZipArchive doesn't support flush() well during build on all versions.
         }
         
         if ( $count === 0 ) {
             $zip->close();
-            if (file_exists($output_file)) unlink($output_file);
+            @unlink($output_file);
             throw new \Exception("No files found to zip. Check permissions or path.");
         }
 
+        // The critical point: close() writes the file.
         if ( $zip->close() !== TRUE ) {
-            if (file_exists($output_file)) unlink($output_file);
-            throw new \Exception( "ZipArchive::close() failed. Disk full or write permission denied." );
+            @unlink($output_file);
+            // This error is almost always Disk Space or Timeout during write.
+            throw new \Exception( "Zip failure during write (Timeout or Disk Full). Code 500." . $disk_space_msg );
         }
         
         if ( ! file_exists( $output_file ) || filesize( $output_file ) < 100 ) {
-             throw new \Exception( "Zip file created but is empty or missing directly after close." );
+             throw new \Exception( "Zip file created but is empty." );
+        }
+    }
+
+    private function get_zip_error_message( $code ) {
+        switch ( $code ) {
+            case \ZipArchive::ER_EXISTS: return 'File already exists.';
+            case \ZipArchive::ER_INCONS: return 'Zip archive inconsistent.';
+            case \ZipArchive::ER_INVAL: return 'Invalid argument.';
+            case \ZipArchive::ER_MEMORY: return 'Malloc failure.';
+            case \ZipArchive::ER_NOENT: return 'No such file.';
+            case \ZipArchive::ER_NOZIP: return 'Not a zip archive.';
+            case \ZipArchive::ER_OPEN: return 'Can\'t open file.';
+            case \ZipArchive::ER_READ: return 'Read error.';
+            case \ZipArchive::ER_SEEK: return 'Seek error.';
+            default: return "Unknown Error ($code)";
         }
     }
 

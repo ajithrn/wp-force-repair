@@ -103,7 +103,7 @@ class GitHubUpdater {
 		return $remote;
 	}
 
-	private function fetch_github_release() {
+	public function fetch_github_release() {
 		$url = "https://api.github.com/repos/{$this->github_repo}/releases/latest";
 		$response = wp_remote_get( $url, [
             'timeout' => 10,

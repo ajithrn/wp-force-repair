@@ -38,6 +38,14 @@ class UpdateController {
 				]
 			]
 		] );
+
+        register_rest_route( 'wp-force-repair/v1', '/check-update', [
+            'methods'             => 'GET',
+            'callback'            => [ $this, 'check_self_update' ],
+            'permission_callback' => function () {
+                return current_user_can( 'manage_options' );
+            },
+        ] );
 	}
 
 	public function handle_install( \WP_REST_Request $request ) {
@@ -136,6 +144,43 @@ class UpdateController {
             ], 500 );
         }
 	}
+
+    public function check_self_update() {
+        // Instantiate Updater manually (it requires file path and repo slug)
+        // We know standard path: WP_PLUGIN_DIR . '/wp-force-repair/wp-force-repair.php'
+        // But better to use constants if available.
+        // Assuming 'WPForceRepair\WFR_PLUGIN_FILE' is not defined public constant, I'll reconstruct given this class's context.
+        // Actually, main file defines WFR_VERSION.
+        // I'll assume standard path.
+        
+        require_once dirname( dirname( __DIR__ ) ) . '/includes/Utils/GitHubUpdater.php';
+        $updater = new \WPForceRepair\Utils\GitHubUpdater( 
+            WP_PLUGIN_DIR . '/wp-force-repair/wp-force-repair.php', 
+            'ajithrn/wp-force-repair' 
+        );
+
+        $remote = $updater->fetch_github_release();
+        
+        if ( ! $remote ) {
+            return new \WP_REST_Response( [
+                'has_update' => false,
+                'current_version' => WFR_VERSION,
+                'checked_at' => current_time( 'mysql' ),
+                'error' => 'Could not fetch from GitHub.'
+            ], 200 );
+        }
+
+        $has_update = version_compare( WFR_VERSION, $remote->new_version, '<' );
+        
+        return new \WP_REST_Response( [
+            'has_update' => $has_update,
+            'current_version' => WFR_VERSION,
+            'new_version' => $remote->new_version,
+            'download_link' => $remote->package,
+            'changelog' => $remote->body,
+            'checked_at' => current_time( 'mysql' )
+        ], 200 );
+    }
 
 	private function get_plugin_file( $slug ) {
 		// Helper to find the main plugin file from slug.

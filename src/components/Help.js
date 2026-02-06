@@ -1,4 +1,9 @@
-const { useState } = wp.element;
+const { useState, useEffect } = wp.element;
+const apiFetch = wp.apiFetch;
+import Swal from 'sweetalert2';
+import withReactContent from 'sweetalert2-react-content';
+
+const MySwal = withReactContent(Swal);
 
 const Help = () => {
     const faqs = [
@@ -17,10 +22,6 @@ const Help = () => {
         {
             q: 'Why are there "Unknown Files" in Core?',
             a: 'The plugin scans your <code>wp-admin</code> and <code>wp-includes</code> folders against the official checksums. Any file NOT in the official release is flagged. These are often malware or leftover files from old updates.'
-        },
-        {
-            q: 'How do I update this plugin?',
-            a: 'This plugin supports auto-updates via GitHub. When a new release is properly tagged on the GitHub repository, it will appear in your Dashboard > Updates page just like any other plugin.'
         },
         {
             q: 'Where are "Quarantined" files stored?',
@@ -43,6 +44,8 @@ const Help = () => {
                 <p className="description">Common questions and guides for using WP Force Repair.</p>
             </div>
 
+            <PluginUpdateCard />
+
             <div className="wfr-card" style={{ marginTop: '20px', padding: '0' }}>
                 { faqs.map((faq, i) => (
                     <AccordionItem key={i} question={faq.q} answer={faq.a} />
@@ -54,6 +57,94 @@ const Help = () => {
                 <p>
                     Please open an issue on the <a href="https://github.com/ajithrn/wp-force-repair/issues" target="_blank">GitHub Repository</a>.
                 </p>
+            </div>
+        </div>
+    );
+};
+
+const PluginUpdateCard = () => {
+    const [ checking, setChecking ] = useState( false );
+    const [ status, setStatus ] = useState( null );
+
+    const checkUpdates = async () => {
+        setChecking( true );
+        try {
+            const res = await apiFetch({ path: '/wp-force-repair/v1/check-update' });
+            setStatus( res );
+        } catch ( e ) {
+            setStatus({ error: e.message });
+        }
+        setChecking( false );
+    };
+    
+    const handleUpdate = async () => {
+         const result = await MySwal.fire({
+            title: 'Update Plugin?',
+            text: `Install version ${status.new_version}?`,
+            icon: 'info',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, Update Now'
+        });
+
+        if ( ! result.isConfirmed ) return;
+        
+        // Use existing install endpoint
+        // Slug for this plugin is 'wp-force-repair/wp-force-repair' or similar, but GitHubUpdater handles specifics
+        // We know the slug relative to plugins dir is likely 'wp-force-repair/wp-force-repair', 
+        // OR we can just pass the slug 'wp-force-repair' and let standard installer handle it?
+        // Wait, standard installer expects WP.org slug. 
+        // But our customized UpdateController CAN handle download_link directly.
+        
+        MySwal.fire({ title: 'Updating...', didOpen: () => MySwal.showLoading() });
+        
+        try {
+             await apiFetch({ 
+                path: '/wp-force-repair/v1/install',
+                method: 'POST',
+                data: {
+                    type: 'plugin',
+                    slug: 'wp-force-repair', // This might be tricky if it tries to fetch from repo, but providing download_link overrides that.
+                    download_link: status.download_link
+                }
+            });
+            
+            await MySwal.fire( 'Updated!', 'Plugin updated successfully. Reloading...', 'success' );
+            window.location.reload();
+        } catch ( e ) {
+            MySwal.fire( 'Update Failed', e.message, 'error' );
+        }
+    };
+
+    return (
+        <div className="wfr-card" style={{ marginTop: '20px', padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderLeft: status?.has_update ? '4px solid #d63638' : '4px solid #00a32a' }}>
+            <div>
+                <h3 style={{ margin: '0 0 5px 0' }}>Plugin Status</h3>
+                { ! status && <p style={{ margin: 0, color: '#666' }}>Force check for plugin updates from GitHub.</p> }
+                
+                { status && status.error && <p style={{ margin: 0, color: '#d63638' }}>Error: { status.error }</p> }
+                
+                { status && ! status.error && (
+                    <div>
+                        <p style={{ margin: 0, fontWeight: 600, color: status.has_update ? '#d63638' : '#00a32a' }}>
+                            { status.has_update 
+                                ? `Update Available: v${status.new_version}` 
+                                : `You are on the latest version (v${status.current_version})` 
+                            }
+                        </p>
+                        { status.has_update && <p style={{ fontSize: '12px', margin: '5px 0 0 0' }}>Current: v{status.current_version}</p> }
+                    </div>
+                )}
+            </div>
+            <div>
+                { ! status || ! status.has_update ? (
+                     <button className="button button-secondary" disabled={ checking } onClick={ checkUpdates }>
+                        { checking ? 'Checking...' : 'Check for Updates' }
+                    </button>
+                ) : (
+                    <button className="button button-primary" onClick={ handleUpdate }>
+                        Update Now
+                    </button>
+                )}
             </div>
         </div>
     );

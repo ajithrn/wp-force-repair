@@ -197,7 +197,13 @@ const BackupManager = () => {
 
         MySwal.fire({
             title: title,
-            html: `<div style="margin-top:10px; font-weight:500;">${message}</div><div style="margin-top:5px; font-size:12px; color:#666">Please do not close this window.</div>`,
+            html: `
+                <div style="margin-top:10px; font-weight:500;">${message}</div>
+                <div style="margin-top:15px; padding:10px; background:#fff8e5; border-left:4px solid #ffba00; text-align:left; font-size:13px; color:#555;">
+                    <strong>Note:</strong> Duration depends on your total site size. Large sites (many images/plugins) may take several minutes.
+                </div>
+                <div style="margin-top:10px; font-size:12px; color:#666">Please do not close this window.</div>
+            `,
             didOpen: () => MySwal.showLoading(),
             allowOutsideClick: false
         });
