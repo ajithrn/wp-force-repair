@@ -100,6 +100,14 @@ class CoreController {
 			},
 		] );
 
+        register_rest_route( 'wp-force-repair/v1', '/core/tools/reset-permissions', [
+			'methods'             => 'POST',
+			'callback'            => [ $this, 'reset_file_permissions' ],
+			'permission_callback' => function () {
+				return current_user_can( 'manage_options' );
+			},
+		] );
+
 		register_rest_route( 'wp-force-repair/v1', '/core/reinstall', [
 			'methods'             => 'POST',
 			'callback'            => [ $this, 'handle_clean_reinstall' ],
@@ -567,6 +575,55 @@ class CoreController {
             'deleted' => $count,
             'remaining' => $remaining,
             'message' => "Deleted $count $type comments." . ( $remaining > 0 ? " ($remaining remaining)" : "" )
+        ], 200 );
+    }
+
+    public function reset_file_permissions() {
+        // Increase time limit
+        @set_time_limit( 300 );
+
+        $root = ABSPATH;
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator( $root, \RecursiveDirectoryIterator::SKIP_DOTS ),
+            \RecursiveIteratorIterator::SELF_FIRST
+        );
+
+        $count_dirs = 0;
+        $count_files = 0;
+        $errors = 0;
+
+        foreach ( $iterator as $item ) {
+            // Skip .git and node_modules to be fast and safe
+            if ( strpos( $item->getPathname(), '.git' ) !== false || strpos( $item->getPathname(), 'node_modules' ) !== false ) {
+                continue;
+            }
+
+            try {
+                if ( $item->isDir() ) {
+                    if ( chmod( $item->getPathname(), 0755 ) ) {
+                        $count_dirs++;
+                    } else {
+                        $errors++;
+                    }
+                } else {
+                    if ( chmod( $item->getPathname(), 0644 ) ) {
+                        $count_files++;
+                    } else {
+                        $errors++;
+                    }
+                }
+            } catch ( \Exception $e ) {
+                $errors++;
+            }
+        }
+
+        // Also fix root
+        @chmod( $root, 0755 );
+
+        return new \WP_REST_Response( [
+            'success' => true,
+            'message' => "Permissions Reset Complete. Fixed $count_dirs folders and $count_files files.",
+            'errors' => $errors
         ], 200 );
     }
 }

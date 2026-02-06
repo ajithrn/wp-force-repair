@@ -20,7 +20,9 @@
 - [x] **System Health Tools**:
   - [x] Flush Permalinks.
   - [x] Regenerate `.htaccess`.
+  - [x] Regenerate `.htaccess`.
   - [x] **Comment Cleanup**: Bulk delete Spam/Pending comments.
+  - [ ] **Reset File Permissions**: Fix folders (755) and files (644).
 
 ## Phase 3: Database Repair & Optimization (Planned)
 
@@ -32,8 +34,13 @@
   - Clean orphaned Post Meta and Term Relationships.
   - Drop unknown/spam tables (with backup options).
 
-## Phase 4: Automation & CLI (Future)
+## Phase 4: Emergency Rescue Mode (Planned)
 
-- [ ] **WP-CLI Support**: Run repair commands via terminal.
-- [ ] **Scheduled Scans**: Daily integrity checks.
-- [ ] **Email Alerts**: Notify admin on file changes.
+- [ ] **Standalone Rescue Script**:
+  - **Architecture**: No-WP-Load PHP script.
+  - **Disable Plugins**: Emergency deactivation of all plugins.
+  - **Rescue Theme**: Force switch to default theme (Twenty*).
+  - **Core/Plugin Reinstall**: Reinstall without admin access.
+  - **Force Install**: Upload ZIPs directly.
+  - **Root File Manager**: Manage files via web interface.
+  - **Rescue Admin**: Create emergency admin user via SQL.

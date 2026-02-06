@@ -149,6 +149,26 @@ const SystemHealth = () => {
                     }}>
                         Regenerate Salt Keys
                     </button>
+                    
+                    <button className="button button-secondary button-hero" onClick={ async () => {
+                        const result = await MySwal.fire({
+                            title: 'Reset File Permissions?',
+                            html: "This will recursively set:<br/>Folders -> 0755<br/>Files -> 0644<br/><br/>This process may take some time.",
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonText: 'Yes, Reset Permissions'
+                        });
+                        
+                        if( result.isConfirmed ) {
+                            MySwal.fire({ title: 'Reseting Permissions...', didOpen: () => MySwal.showLoading() });
+                            try {
+                                const res = await apiFetch({ path: '/wp-force-repair/v1/core/tools/reset-permissions', method: 'POST' });
+                                MySwal.fire( 'Success', res.message, 'success' );
+                            } catch(e) { MySwal.fire( 'Error', e.message, 'error' ); }
+                        }
+                    }}>
+                        Reset File Permissions
+                    </button>
                 </div>
             </div>
         </div>
