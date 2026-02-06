@@ -1,9 +1,10 @@
 /* WP Force Repair - Native UI Styles */
 
 /* Ensure wrapper takes full width but follows WP padding */
-.wfr-dashboard .wrap, 
+.wfr-dashboard .wrap,
 .wfr-content-wrap {
-  max-width: 98% !important; /* Force nearly full width */
+  max-width: 98% !important;
+  /* Force nearly full width */
   margin-right: 20px;
 }
 
@@ -170,4 +171,24 @@
   50% {
     opacity: 0;
   }
+}
+
+/* SweetAlert2 Overrides for WP Integration */
+div.swal2-container .swal2-popup {
+  font-size: 13px !important;
+  /* Match WP Admin */
+}
+
+div.swal2-container .swal2-title {
+  font-size: 1.5em !important;
+}
+
+div.swal2-container .swal2-html-container {
+  font-size: 1.1em !important;
+  line-height: 1.5;
+}
+
+div.swal2-container .swal2-styled {
+  font-size: 1em !important;
+  padding: 8px 16px !important;
 }

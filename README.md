@@ -7,7 +7,9 @@
 - **Force Install/Update**: Re-install existing plugins/themes or install new ones, forcibly overwriting existing files to fix corruption.
 - **Core Manager**:
   - **Force Re-install Core**: Safely replaces `wp-admin` and `wp-includes` while keeping `wp-content` and `wp-config.php` safe.
-  - **Integrity Scan**: Scans the root directory for unknown or suspicious files. Includes a **Quick View** to safely inspect file content.
+  - **Optional Quarantine**: Automatically identifies and moves unknown root files to a safe quarantine folder (optional checkbox).
+  - **Integrity Scan**: Instantly detected non-standard files in your root directory.
+  - **File Viewer**: Inspect suspicious files directly within the dashboard before deleting or quarantining.
   - **Quarantine System**: Isolate suspicious files, restore them if needed, or permanently delete them.
 - **System Health Tools**:
   - **Flush Permalinks**: Fixes 404 errors by resetting rewrite rules.
@@ -26,7 +28,10 @@
 
 ## Contributing
 
-Interested in developing or modifying this plugin? Check out our [Developer Guide](docs/CONTRIBUTING.md).
+## Documentation
+
+- 📖 **[User Guide & FAQ](docs/USAGE.md)**: detailed instructions on how to use every feature.
+- 👨‍💻 **[Developer Guide](docs/CONTRIBUTING.md)**: for those who want to contribute code.
 
 ## Roadmap
 

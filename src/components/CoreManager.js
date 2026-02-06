@@ -144,7 +144,7 @@ const CoreManager = () => {
             const res = await apiFetch({ path: `/wp-force-repair/v1/core/tools/view-file?file=${file.name}` });
             MySwal.fire({
                 title: file.name,
-                html: `<pre style="text-align:left; max-height:400px; overflow:auto; background:#f0f0f1; padding:10px; border-radius:4px;">${res.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`,
+                html: `<pre style="text-align:left; max-height:400px; overflow:auto; background:#f0f0f1; padding:10px; border-radius:4px; font-size: 12px;">${res.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`,
                 width: '800px',
                 showConfirmButton: true,
                 confirmButtonText: 'Close'
@@ -185,28 +185,50 @@ const CoreManager = () => {
     const handleReinstall = async () => {
         const result = await MySwal.fire({
             title: 'Re-install Core?',
-            html: "WARNING: This will replace all WordPress Core files.<br/><br/>" +
-                  "- <b>wp-admin</b> & <b>wp-includes</b> will be replaced.<br/>" +
-                  "- Root PHP files will be overwritten.<br/>" +
-                  "- Unknown root files will be Quarantined.<br/><br/>" +
-                  "Your <b>wp-content</b> and <b>wp-config.php</b> are SAFE.",
+            html: `
+                <div style="text-align: left;">
+                    <p style="margin-bottom: 10px;">WARNING: This will replace all WordPress Core files.</p>
+                    <ul style="list-style: disc; margin-left: 20px; margin-bottom: 20px;">
+                        <li><b>wp-admin</b> & <b>wp-includes</b> will be replaced.</li>
+                        <li>Root PHP files will be overwritten.</li>
+                        <li>Your <b>wp-content</b> and <b>wp-config.php</b> are SAFE.</li>
+                    </ul>
+                    <div style="background: #fff; padding: 10px; border: 1px solid #ddd; border-left: 4px solid #d63638;">
+                        <label style="font-weight: 600; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="swal-quarantine-checkbox" /> 
+                            Quarantine unknown files?
+                        </label>
+                        <p style="margin: 5px 0 0 25px; font-size: 12px; color: #666;">
+                            If checked, any non-standard files in root will be moved to quarantine safe storage.
+                        </p>
+                    </div>
+                </div>
+            `,
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#2271b1',
-            confirmButtonText: 'Yes, Re-install Core'
+            confirmButtonText: 'Yes, Re-install Core',
+            preConfirm: () => {
+                return { quarantine: document.getElementById('swal-quarantine-checkbox').checked };
+            }
         });
 
         if ( ! result.isConfirmed ) return;
 
+        const shouldQuarantine = result.value.quarantine;
+
         setIsInstalling( true );
         setInstallStatus( 'processing' );
-        setInstallLogs( [ 'Initiating Safe Core Reinstall...', 'Verifying backup integrity...' ] );
+        setInstallLogs( [ 'Initiating Safe Core Reinstall...', shouldQuarantine ? 'Quarantine enabled.' : 'Quarantine disabled.', 'Verifying backup integrity...' ] );
 
         try {
             const res = await apiFetch( {
                 path: '/wp-force-repair/v1/core/reinstall',
                 method: 'POST',
-                data: { version: status?.latest_version || 'latest' }
+                data: { 
+                    version: status?.latest_version || 'latest',
+                    quarantine_unknowns: shouldQuarantine
+                }
             } );
 
             if ( res.success ) {

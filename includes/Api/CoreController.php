@@ -368,13 +368,26 @@ class CoreController {
                 throw new \Exception( 'Download failed: ' . $temp_file->get_error_message() );
             }
 
-            // 3. AUTO-QUARANTINE UNKNOWNS
-            $scan = $this->scan_root_files();
-            $suspected = $scan->data['suspected_files'];
-                $files_to_q = array_column( $suspected, 'name' );
-                $quarantine_request = new \WP_REST_Request( 'POST', '/wp-force-repair/v1/core/quarantine' );
-                $quarantine_request->set_body_params( [ 'files' => $files_to_q ] );
-                $this->quarantine_files( $quarantine_request );
+            // 3. AUTO-QUARANTINE UNKNOWNS (Optional)
+           $do_quarantine = $request->get_param( 'quarantine_unknowns' );
+           
+           if ( $do_quarantine ) {
+               $logs[] = "Scanning and quarantining unknown files...";
+               $scan = $this->scan_root_files();
+               $suspected = $scan->data['suspected_files'];
+               
+               if ( ! empty( $suspected ) ) {
+                   $files_to_q = array_column( $suspected, 'name' );
+                   $quarantine_request = new \WP_REST_Request( 'POST', '/wp-force-repair/v1/core/quarantine' );
+                   $quarantine_request->set_body_params( [ 'files' => $files_to_q ] );
+                   $this->quarantine_files( $quarantine_request );
+                   $logs[] = "Quarantined " . count( $files_to_q ) . " unknown files.";
+               } else {
+                   $logs[] = "No unknown files found to quarantine.";
+               }
+           } else {
+               $logs[] = "Skipping quarantine (only replacing Core files).";
+           }
 
             // 4. UNZIP
             $logs[] = "Unzipping package...";
