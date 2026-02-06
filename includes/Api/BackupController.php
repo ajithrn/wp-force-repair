@@ -62,6 +62,7 @@ class BackupController extends \WP_REST_Controller {
     public function create_backup( $request ) {
         @set_time_limit( 0 ); // Infinite time
         $type = $request->get_param( 'type' ); // 'db' or 'files'
+        $exclude_media = $request->get_param( 'exclude_media' );
         
         $site_name = sanitize_title( get_bloginfo( 'name' ) );
         if ( empty( $site_name ) ) $site_name = 'site';
@@ -98,7 +99,7 @@ class BackupController extends \WP_REST_Controller {
                 }
                 $filename .= '.zip';
                 $file_path = $this->backup_dir . $filename;
-                $this->zip_files( $file_path );
+                $this->zip_files( $file_path, $exclude_media );
             } else {
                 return new \WP_Error( 'invalid_type', 'Invalid backup type.' );
             }
@@ -170,12 +171,17 @@ class BackupController extends \WP_REST_Controller {
         fclose( $handle );
     }
 
-    private function zip_files( $output_file ) {
+    private function zip_files( $output_file, $exclude_media = false ) {
         // IMPROVEMENT: Prevent client disconnect from killing process
         ignore_user_abort( true );
         
         $rootPath = realpath( ABSPATH );
         $excludes = [ 'node_modules', '.git', 'wfr-backups' ];
+        
+        // Exclude uploads if requested
+        if ( $exclude_media ) {
+            $excludes[] = 'wp-content/uploads';
+        }
         $disk_space_msg = '';
 
         // Check disk space if possible
@@ -193,6 +199,13 @@ class BackupController extends \WP_REST_Controller {
                 $exclude_args .= " -x '*/$ex/*'";
             }
             $exclude_args .= " -x '" . basename($output_file) . "'";
+            
+            // Smart Exclusions: Skip backup related folders in uploads or wp-content root
+            // BUT protect plugins/themes that might have 'backup' in name
+            // 'wp-content/*backup*' excludes immediate children of wp-content (like 'wp-content/my-backups')
+            // but effectively ignores 'wp-content/plugins/...' unless plugins folder itself matched (it doesn't).
+            $exclude_args .= " -x 'wp-content/*backup*'"; 
+            $exclude_args .= " -x 'wp-content/uploads/*backup*'";
 
             // Capture stderr to see WHY it fails (e.g. zip command not found)
             $cmd = "cd " . escapeshellarg($rootPath) . " && zip -r " . escapeshellarg($output_file) . " . $exclude_args 2>&1";
@@ -203,12 +216,6 @@ class BackupController extends \WP_REST_Controller {
             if ( file_exists( $output_file ) && filesize( $output_file ) > 100 ) {
                 return; // Success
             }
-
-            // Log output if failed (for debugging)
-            // If the command returned something (error), we can maybe return it in the exception?
-            // But let's proceed to fallback first, but keep this in mind.
-            // Improve: If output says "command not found", then fallback is valid.
-            // If output says "disk full", fallback will likely fail too.
         }
 
         // 2. Fallback: PHP ZipArchive (Memory & I/O Intensive)
@@ -234,9 +241,35 @@ class BackupController extends \WP_REST_Controller {
             // Fix: Windows path support? Not detected issue here but good practice.
             $relativePath = substr( $filePath, strlen( $rootPath ) + 1 );
 
-            // Check exclusions
+            // 1. Standard Checks
             foreach ( $excludes as $exclude ) {
-                if ( strpos( $relativePath, $exclude ) !== false ) continue 2;
+                if ( strpos( $relativePath, $exclude ) !== false ) continue 2; // skip file
+            }
+
+            // 2. Smart Backup Exclusion
+            // Exclude folders with 'backup' in name if they are in wp-content or uploads
+            // BUT allow plugins and themes to have 'backup' in their path
+            if ( strpos( $relativePath, 'wp-content/' ) === 0 ) {
+                $parts = explode( '/', $relativePath );
+                // $parts[0] = wp-content
+                // $parts[1] = plugins, themes, uploads, or 'backup-folder'
+                
+                if ( isset( $parts[1] ) ) {
+                    $sub = $parts[1];
+
+                    // Case A: Root of wp-content (e.g. wp-content/my-backups)
+                    if ( $sub !== 'plugins' && $sub !== 'themes' && strpos( strtolower($sub), 'backup' ) !== false ) {
+                        continue;
+                    }
+
+                    // Case B: Uploads folder (e.g. wp-content/uploads/backup-2022)
+                    if ( $sub === 'uploads' && isset( $parts[2] ) ) {
+                        $uploadSub = $parts[2];
+                        if ( strpos( strtolower($uploadSub), 'backup' ) !== false ) {
+                             continue;
+                        }
+                    }
+                }
             }
 
             // Attempt to add

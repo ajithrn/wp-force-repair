@@ -188,6 +188,50 @@ const BackupManager = () => {
     }, [] );
 
     const handleBackup = async ( type ) => {
+        let excludeMedia = false;
+
+        if ( type === 'files' ) {
+            const { value: formValues } = await MySwal.fire({
+                title: 'Create Backup?',
+                html: `
+                    <div style="text-align:left; margin-bottom:10px;">This will zip your entire WordPress installation.</div>
+                    
+                    <div style="text-align:left; background:#f0f0f1; padding:15px; border-radius:5px;">
+                         <label style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+                            <input type="checkbox" id="exclude_media" style="accent-color:#2271b1; width:20px; height:20px;" />
+                            <div>
+                                <strong style="display:block; font-size:14px;">Exclude Media Library (Recommended)</strong>
+                                <span style="font-size:12px; color:#666;">Skipping images/uploads significantly reduces size and prevents timeouts.</span>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div style="margin-top:15px; padding:10px; background:#fff8e5; border-left:4px solid #ffba00; text-align:left; font-size:13px; color:#555;">
+                        <strong>Note:</strong> Duration depends on your total site size. Large sites (many images/plugins) may take several minutes.
+                    </div>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Start Backup',
+                preConfirm: () => {
+                    return [
+                        document.getElementById('exclude_media').checked
+                    ]
+                }
+            });
+
+            if ( ! formValues ) return;
+            excludeMedia = formValues[0];
+        } else {
+            const result = await MySwal.fire({
+                title: 'Backup Database?',
+                text: 'This will dump your database to a SQL file.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Start Backup'
+            });
+            if ( ! result.isConfirmed ) return;
+        }
+
         setWorking(true);
         
         const title = type === 'db' ? 'Backing up Database...' : 'Backing up Files...';
@@ -199,9 +243,6 @@ const BackupManager = () => {
             title: title,
             html: `
                 <div style="margin-top:10px; font-weight:500;">${message}</div>
-                <div style="margin-top:15px; padding:10px; background:#fff8e5; border-left:4px solid #ffba00; text-align:left; font-size:13px; color:#555;">
-                    <strong>Note:</strong> Duration depends on your total site size. Large sites (many images/plugins) may take several minutes.
-                </div>
                 <div style="margin-top:10px; font-size:12px; color:#666">Please do not close this window.</div>
             `,
             didOpen: () => MySwal.showLoading(),
@@ -212,7 +253,7 @@ const BackupManager = () => {
             const res = await apiFetch({ 
                 path: '/wp-force-repair/v1/backup/create', 
                 method: 'POST',
-                data: { type: type }
+                data: { type: type, exclude_media: excludeMedia }
             });
             
             if ( res.success ) {
