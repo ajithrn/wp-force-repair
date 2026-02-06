@@ -174,6 +174,9 @@ class BackupController extends \WP_REST_Controller {
     private function zip_files( $output_file, $exclude_media = false ) {
         // IMPROVEMENT: Prevent client disconnect from killing process
         ignore_user_abort( true );
+        @set_time_limit( 0 );
+        @ini_set( 'memory_limit', '-1' );
+        @ini_set( 'max_execution_time', 0 ); // Redundant but safe
         
         $rootPath = realpath( ABSPATH );
         $excludes = [ 'node_modules', '.git', 'wfr-backups' ];
@@ -193,6 +196,7 @@ class BackupController extends \WP_REST_Controller {
         }
         
         // 1. Try Shell Exec (Fastest, Robust)
+        $shell_error = '';
         if ( function_exists( 'shell_exec' ) && ! in_array( 'shell_exec', array_map( 'trim', explode( ',', ini_get( 'disable_functions' ) ) ) ) ) {
             $exclude_args = '';
             foreach ($excludes as $ex) {
@@ -200,14 +204,11 @@ class BackupController extends \WP_REST_Controller {
             }
             $exclude_args .= " -x '" . basename($output_file) . "'";
             
-            // Smart Exclusions: Skip backup related folders in uploads or wp-content root
-            // BUT protect plugins/themes that might have 'backup' in name
-            // 'wp-content/*backup*' excludes immediate children of wp-content (like 'wp-content/my-backups')
-            // but effectively ignores 'wp-content/plugins/...' unless plugins folder itself matched (it doesn't).
+            // Smart Exclusions
             $exclude_args .= " -x 'wp-content/*backup*'"; 
             $exclude_args .= " -x 'wp-content/uploads/*backup*'";
 
-            // Capture stderr to see WHY it fails (e.g. zip command not found)
+            // Capture stderr to see WHY it fails
             $cmd = "cd " . escapeshellarg($rootPath) . " && zip -r " . escapeshellarg($output_file) . " . $exclude_args 2>&1";
             
             $output = shell_exec($cmd);
@@ -216,6 +217,9 @@ class BackupController extends \WP_REST_Controller {
             if ( file_exists( $output_file ) && filesize( $output_file ) > 100 ) {
                 return; // Success
             }
+            
+            // Capture failure reason
+            $shell_error = " (Shell Error: " . substr(strip_tags($output), 0, 100) . ")";
         }
 
         // 2. Fallback: PHP ZipArchive (Memory & I/O Intensive)
@@ -224,7 +228,7 @@ class BackupController extends \WP_REST_Controller {
         
         if ( $code !== TRUE ) {
             $err = $this->get_zip_error_message( $code );
-            throw new \Exception( "Cannot create zip file. Error: $err" . $disk_space_msg );
+            throw new \Exception( "Cannot create zip file. Error: $err" . $disk_space_msg . $shell_error );
         }
 
         $files = new \RecursiveIteratorIterator(
@@ -233,36 +237,30 @@ class BackupController extends \WP_REST_Controller {
         );
 
         $count = 0;
+        $batch_count = 0;
+        $batch_limit = 500; // Close/Reopen every 500 files to save state and prevent massive write timeout
+
         foreach ( $files as $name => $file ) {
             if ( $file->isDir() ) continue;
 
             $filePath = $file->getRealPath();
-            
-            // Fix: Windows path support? Not detected issue here but good practice.
             $relativePath = substr( $filePath, strlen( $rootPath ) + 1 );
 
             // 1. Standard Checks
             foreach ( $excludes as $exclude ) {
-                if ( strpos( $relativePath, $exclude ) !== false ) continue 2; // skip file
+                if ( strpos( $relativePath, $exclude ) !== false ) continue 2; 
             }
 
             // 2. Smart Backup Exclusion
-            // Exclude folders with 'backup' in name if they are in wp-content or uploads
-            // BUT allow plugins and themes to have 'backup' in their path
             if ( strpos( $relativePath, 'wp-content/' ) === 0 ) {
                 $parts = explode( '/', $relativePath );
-                // $parts[0] = wp-content
-                // $parts[1] = plugins, themes, uploads, or 'backup-folder'
-                
                 if ( isset( $parts[1] ) ) {
                     $sub = $parts[1];
-
-                    // Case A: Root of wp-content (e.g. wp-content/my-backups)
+                    // Case A: Root of wp-content
                     if ( $sub !== 'plugins' && $sub !== 'themes' && strpos( strtolower($sub), 'backup' ) !== false ) {
                         continue;
                     }
-
-                    // Case B: Uploads folder (e.g. wp-content/uploads/backup-2022)
+                    // Case B: Uploads folder
                     if ( $sub === 'uploads' && isset( $parts[2] ) ) {
                         $uploadSub = $parts[2];
                         if ( strpos( strtolower($uploadSub), 'backup' ) !== false ) {
@@ -274,12 +272,23 @@ class BackupController extends \WP_REST_Controller {
 
             // Attempt to add
             if ( ! $zip->addFile( $filePath, $relativePath ) ) {
-                // If adding fails, usually file lock or permission
                 continue; 
             }
             $count++;
+            $batch_count++;
             
-            // Flush periodically? No, ZipArchive doesn't support flush() well during build on all versions.
+            // Incremental Save to prevent timeout
+            if ( $batch_count >= $batch_limit ) {
+                if ( $zip->close() === TRUE ) {
+                     // Re-open
+                     $zip->open( $output_file ); 
+                     $batch_count = 0;
+                     // Reset timer if allowed (some hosts disable this)
+                     @set_time_limit( 0 );
+                } else {
+                     throw new \Exception("Intermediate Zip Save failed. Disk full?");
+                }
+            }
         }
         
         if ( $count === 0 ) {
@@ -288,11 +297,10 @@ class BackupController extends \WP_REST_Controller {
             throw new \Exception("No files found to zip. Check permissions or path.");
         }
 
-        // The critical point: close() writes the file.
+        // Final Close
         if ( $zip->close() !== TRUE ) {
             @unlink($output_file);
-            // This error is almost always Disk Space or Timeout during write.
-            throw new \Exception( "Zip failure during write (Timeout or Disk Full). Code 500." . $disk_space_msg );
+            throw new \Exception( "Zip failure during write (Timeout or Disk Full). Code 500." . $disk_space_msg . $shell_error );
         }
         
         if ( ! file_exists( $output_file ) || filesize( $output_file ) < 100 ) {
