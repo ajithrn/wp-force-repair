@@ -108,6 +108,14 @@ class CoreController {
 			},
 		] );
 
+        register_rest_route( 'wp-force-repair/v1', '/core/tools/view-file', [
+			'methods'             => 'GET',
+			'callback'            => [ $this, 'get_file_content' ],
+			'permission_callback' => function () {
+				return current_user_can( 'manage_options' );
+			},
+		] );
+
 		register_rest_route( 'wp-force-repair/v1', '/core/reinstall', [
 			'methods'             => 'POST',
 			'callback'            => [ $this, 'handle_clean_reinstall' ],
@@ -624,6 +632,35 @@ class CoreController {
             'success' => true,
             'message' => "Permissions Reset Complete. Fixed $count_dirs folders and $count_files files.",
             'errors' => $errors
+        ], 200 );
+    }
+
+    public function get_file_content( $request ) {
+        $file = $request->get_param( 'file' );
+        if ( empty( $file ) ) {
+            return new \WP_Error( 'missing_file', 'No file specified.' );
+        }
+
+        // Security: Prevent traversal and ensure it's in root
+        $path = ABSPATH . basename( $file );
+        
+        if ( ! file_exists( $path ) ) {
+             return new \WP_Error( 'file_not_found', 'File not found.' );
+        }
+        
+        if ( is_dir( $path ) ) {
+             return new \WP_Error( 'is_dir', 'Cannot read a directory.' );
+        }
+
+        // Limit size to avoid memory issues (e.g., 1MB)
+        if ( filesize( $path ) > 1024 * 1024 ) {
+            return new \WP_Error( 'file_too_large', 'File is too large to view.' );
+        }
+
+        $content = file_get_contents( $path );
+        return new \WP_REST_Response( [
+            'success' => true,
+            'content' => $content
         ], 200 );
     }
 }

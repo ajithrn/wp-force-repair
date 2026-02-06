@@ -137,6 +137,23 @@ const CoreManager = () => {
         }
     };
 
+    const handleViewFile = async ( file ) => {
+        if( file.type === 'directory' ) return;
+        MySwal.fire({ title: 'Loading...', didOpen: () => MySwal.showLoading() });
+        try {
+            const res = await apiFetch({ path: `/wp-force-repair/v1/core/tools/view-file?file=${file.name}` });
+            MySwal.fire({
+                title: file.name,
+                html: `<pre style="text-align:left; max-height:400px; overflow:auto; background:#f0f0f1; padding:10px; border-radius:4px;">${res.content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`,
+                width: '800px',
+                showConfirmButton: true,
+                confirmButtonText: 'Close'
+            });
+        } catch(e) {
+            MySwal.fire( 'Error', e.message, 'error' );
+        }
+    };
+
     const handleDeleteQuarantined = async ( path ) => {
         const result = await MySwal.fire({
             title: 'Permanently Delete?',
@@ -254,50 +271,57 @@ const CoreManager = () => {
                 
                 { scanning ? <p>Scanning...</p> : (
                     <>
-                        <div className="wfr-bulk-bar" style={{ padding: '10px 0', display: 'flex', gap: '10px', alignItems: 'center' }}>
-                            <label><input type="checkbox" onChange={ toggleSelectAll } checked={ suspectedFiles.length > 0 && selectedFiles.length === suspectedFiles.length } /> Select All</label>
-                            
-                            <button className="button button-secondary" disabled={ ! selectedFiles.length } onClick={ () => handleQuarantine() }>
-                                Quarantine Selected ({selectedFiles.length})
-                            </button>
-                        </div>
-                        
-                        <table className="wp-list-table widefat fixed striped">
-                            <thead>
-                                <tr>
-                                    <td className="check-column"><input type="checkbox" disabled /></td>
-                                    <th>Filename</th>
-                                    <th>Type</th>
-                                    <th>Size</th>
-                                    <th>Modified</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                { suspectedFiles.length === 0 ? (
-                                    <tr><td colSpan="6">No unknown files found. Your root directory is clean.</td></tr>
-                                ) : (
-                                    suspectedFiles.map( ( file, i ) => (
-                                        <tr key={ i }>
-                                            <th className="check-column">
-                                                <input type="checkbox" checked={ selectedFiles.includes( file.name ) } onChange={ () => toggleFile( file.name ) } />
-                                            </th>
-                                            <td><span style={{ color: '#d63638', fontWeight: 500 }}>{ file.name }</span></td>
-                                            <td>{ file.type }</td>
-                                            <td>{ file.size }</td>
-                                            <td>{ file.mtime }</td>
-                                            <td>
-                                                <button className="button button-small" onClick={ () => handleQuarantine( [ file.name ] ) }>Quarantine</button>
-                                            </td>
+                        <h3>Integrity Scan (Root Directory)</h3>
+                        { suspectedFiles.length === 0 ? (
+                             <p style={{ color: 'green' }}>✔ No unknown files found in root directory.</p>
+                        ) : (
+                            <div>
+                                <p>Found <strong>{suspectedFiles.length}</strong> unknown files/folders in root.</p>
+                                <table className="widefat striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Type</th>
+                                            <th>Size</th>
+                                            <th>Actions</th>
                                         </tr>
-                                    ) )
-                                )}
-                            </tbody>
-                        </table>
+                                    </thead>
+                                    <tbody>
+                                        { suspectedFiles.map( (file, i) => (
+                                            <tr key={i}>
+                                                <td>{file.name}</td>
+                                                <td>{file.type}</td>
+                                                <td>{file.size}</td>
+                                                <td>
+                                                    <div style={{ display: 'flex', gap: '5px' }}>
+                                                        { file.type !== 'directory' && (
+                                                            <button 
+                                                                className="button button-small"
+                                                                title="View Content"
+                                                                onClick={ () => handleViewFile(file) }
+                                                            >
+                                                                View Content
+                                                            </button>
+                                                        )}
+                                                        <button 
+                                                            className="button button-small" 
+                                                            onClick={ () => handleQuarantine([file.name]) }
+                                                            title="Quarantine"
+                                                        >
+                                                            Quarantine
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ) ) }
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </>
                 )}
             </div>
-
+        
             {/* Quarantine Viewer */}
             { quarantinedData.length > 0 && (
                 <div className="wfr-quarantine-section card" style={{ marginTop: '20px', padding: '15px', maxWidth: '100%' }}>

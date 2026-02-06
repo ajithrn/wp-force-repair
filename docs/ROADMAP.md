@@ -11,7 +11,7 @@
 
 - [x] **Core Reinstall Manager**:
   - [x] Download and install latest WordPress Core safely.
-  - [x] Integrity Scan: Detects unknown files in root directory.
+  - [x] Integrity Scan: Detects unknown files (includes **Quick View**).
   - [x] Auto-Quarantine: Automatically moves suspicious files to a safe location before reinstall.
 - [x] **Quarantine Manager**:
   - [x] View list of quarantined files/backups.
@@ -20,9 +20,9 @@
 - [x] **System Health Tools**:
   - [x] Flush Permalinks.
   - [x] Regenerate `.htaccess`.
-  - [x] Regenerate `.htaccess`.
+
   - [x] **Comment Cleanup**: Bulk delete Spam/Pending comments.
-  - [ ] **Reset File Permissions**: Fix folders (755) and files (644).
+  - [x] **Reset File Permissions**: Fix folders (755) and files (644).
 
 ## Phase 3: Database Repair & Optimization (Planned)
 
