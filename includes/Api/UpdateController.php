@@ -41,98 +41,100 @@ class UpdateController {
 	}
 
 	public function handle_install( \WP_REST_Request $request ) {
+        // Prevent timeouts
+        @set_time_limit( 0 );
+
 		$slug = $request->get_param( 'slug' );
 		$type = $request->get_param( 'type' );
 		$download_link = $request->get_param( 'download_link' );
 
+        // 1. Load Required WP Admin Files
 		require_once ABSPATH . 'wp-admin/includes/file.php';
 		require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
 		require_once ABSPATH . 'wp-admin/includes/plugin.php';
 		require_once ABSPATH . 'wp-admin/includes/theme.php';
         require_once ABSPATH . 'wp-admin/includes/plugin-install.php';
+        require_once ABSPATH . 'wp-admin/includes/misc.php'; // For got_mod_rewrite etc sometimes needed
 
-        // If no download link provided, try to fetch it from WP Repo
-        if ( empty( $download_link ) ) {
-            if ( 'plugin' === $type ) {
-                $api = plugins_api( 'plugin_information', [ 'slug' => $slug, 'fields' => [ 'sections' => false ] ] );
-                if ( is_wp_error( $api ) ) {
-                    return new \WP_REST_Response( [
-                        'success' => false,
-                        'message' => 'Could not retrieve download link: ' . $api->get_error_message(),
-                    ], 500 );
-                }
-                $download_link = $api->download_link;
-            } else {
-                $api = themes_api( 'theme_information', [ 'slug' => $slug, 'fields' => [ 'sections' => false ] ] );
-                if ( is_wp_error( $api ) ) {
-                    return new \WP_REST_Response( [
-                        'success' => false,
-                        'message' => 'Could not retrieve download link: ' . $api->get_error_message(),
-                    ], 500 );
-                }
-                $download_link = $api->download_link;
-            }
+        // 2. Initialize Filesystem
+        if ( ! WP_Filesystem() ) {
+            return new \WP_REST_Response( [
+                'success' => false,
+                'message' => 'Could not initialize WP Filesystem. Check permissions.'
+            ], 500 );
         }
 
-		$skin = new JsonSkin();
-		
-		if ( 'plugin' === $type ) {
-			$upgrader = new \Plugin_Upgrader( $skin );
-			
-			// Check if installed
-			$plugin_file = $this->get_plugin_file( $slug );
-			
-			if ( $plugin_file && file_exists( WP_PLUGIN_DIR . '/' . $plugin_file ) ) {
-				add_filter( 'upgrader_package_options', function($options) {
-					$options['clear_destination'] = true;
-					$options['abort_if_destination_exists'] = false; 
-					return $options;
-				} );
-			}
-			
-			$result = $upgrader->install( $download_link );
-			
-			// After install, we might need to reactivate it if it was active.
-			if ( $plugin_file && is_plugin_active( $plugin_file ) ) {
-				activate_plugin( $plugin_file );
-			}
-			
-		} else {
-			$upgrader = new \Theme_Upgrader( $skin );
-			
-			// Similar logic for themes
-			add_filter( 'upgrader_package_options', function($options) {
-				$options['clear_destination'] = true;
-				$options['abort_if_destination_exists'] = false;
-				return $options;
-			} );
-			
-			$result = $upgrader->install( $download_link );
-		}
+        try {
+            // 3. Get Download Link if missing
+            if ( empty( $download_link ) ) {
+                if ( 'plugin' === $type ) {
+                    $api = plugins_api( 'plugin_information', [ 'slug' => $slug, 'fields' => [ 'sections' => false ] ] );
+                    if ( is_wp_error( $api ) ) throw new \Exception( $api->get_error_message() );
+                    $download_link = $api->download_link;
+                } else {
+                    $api = themes_api( 'theme_information', [ 'slug' => $slug, 'fields' => [ 'sections' => false ] ] );
+                    if ( is_wp_error( $api ) ) throw new \Exception( $api->get_error_message() );
+                    $download_link = $api->download_link;
+                }
+            }
 
-		if ( is_wp_error( $result ) ) {
-			return new \WP_REST_Response( [
-				'success' => false,
-				'message' => $result->get_error_message(),
-				'logs'    => $skin->messages,
-				'errors'  => $skin->errors
-			], 500 );
-		}
-		
-		if ( ! $result ) {
-			return new \WP_REST_Response( [
-				'success' => false,
-				'message' => 'Installation failed. Check logs.',
-				'logs'    => $skin->messages,
-				'errors'  => $skin->errors
-			], 500 );
-		}
+            $skin = new JsonSkin();
+            $result = null;
+            
+            if ( 'plugin' === $type ) {
+                $upgrader = new \Plugin_Upgrader( $skin );
+                $plugin_file = $this->get_plugin_file( $slug );
+                
+                // Force Overwrite Filters
+                add_filter( 'upgrader_package_options', function($options) {
+                    $options['clear_destination'] = true;
+                    $options['abort_if_destination_exists'] = false; 
+                    return $options;
+                } );
+                
+                $result = $upgrader->install( $download_link );
+                
+                // Reactivate if needed
+                if ( $plugin_file && ! is_wp_error($result) && $result ) {
+                    // Re-check plugin file as it might have changed or just been created
+                     $new_plugin_file = $this->get_plugin_file( $slug );
+                     if ($new_plugin_file) activate_plugin( $new_plugin_file );
+                }
+                
+            } else {
+                $upgrader = new \Theme_Upgrader( $skin );
+                add_filter( 'upgrader_package_options', function($options) {
+                    $options['clear_destination'] = true;
+                    $options['abort_if_destination_exists'] = false;
+                    return $options;
+                } );
+                
+                $result = $upgrader->install( $download_link );
+            }
 
-		return new \WP_REST_Response( [
-			'success' => true,
-			'message' => 'Installed successfully.',
-			'logs'    => $skin->messages
-		], 200 );
+            if ( is_wp_error( $result ) ) {
+                throw new \Exception( $result->get_error_message() );
+            }
+            
+            if ( ! $result ) {
+                // If result is null/false but no error, check skins logs
+                $err = $skin->errors ? implode(', ', $skin->errors) : 'Unknown installation error.';
+                throw new \Exception( $err );
+            }
+
+            return new \WP_REST_Response( [
+                'success' => true,
+                'message' => 'Installed successfully.',
+                'logs'    => $skin->messages
+            ], 200 );
+
+        } catch ( \Exception $e ) {
+            return new \WP_REST_Response( [
+                'success' => false,
+                'message' => $e->getMessage(),
+                'logs'    => isset($skin) ? $skin->messages : [],
+            ], 500 );
+        }
 	}
 
 	private function get_plugin_file( $slug ) {
