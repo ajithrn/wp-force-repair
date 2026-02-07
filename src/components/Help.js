@@ -42,6 +42,10 @@ const Help = () => {
         {
             q: 'What is "Autoload Size"?',
             a: 'This is the total size of options loaded on <em>every</em> page visit. A high value (over 1MB) can slow down your site. You should investigate plugins storing large data in the <code>wp_options</code> table.'
+        },
+        {
+            q: 'Why do I see a 403 error or "Connection Blocked"?',
+            a: 'This usually means your server or a security plugin is blocking requests to <code>admin-ajax.php</code>. Use the <strong>Connectivity Debugger</strong> in the "Tools" tab to diagnose if it\'s a browser or server-side block.'
         }
     ];
 

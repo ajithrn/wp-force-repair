@@ -173,6 +173,7 @@ const SystemHealth = () => {
             </div>
 
             <BackupManager />
+            <ConnectivityChecker />
         </div>
     );
 };
@@ -329,5 +330,92 @@ const BackupManager = () => {
     );
 };
 
+const ConnectivityChecker = () => {
+    const [ status, setStatus ] = useState( null );
+    const [ checking, setChecking ] = useState( false );
+
+    const checkConnectivity = async () => {
+        setChecking( true );
+        setStatus( null );
+        
+        const results = {
+            ajax: { status: 'pending', code: 0 },
+            rest: { status: 'pending', code: 0 },
+            loopback: { status: 'pending', code: 0, message: '' }
+        };
+
+        // 1. Check Admin AJAX (Frontend)
+        try {
+            const res = await fetch( wfrSettings.ajaxUrl + '?action=heartbeat', { method: 'POST' } );
+            results.ajax.code = res.status;
+            results.ajax.status = res.status === 403 ? 'blocked' : 'ok';
+        } catch (e) {
+            results.ajax.status = 'error';
+        }
+
+        // 2. Check REST API
+        try {
+            await apiFetch({ path: '/' });
+            results.rest.code = 200;
+            results.rest.status = 'ok';
+        } catch (e) {
+            results.rest.code = e.code || 500;
+            results.rest.status = 'error';
+        }
+
+        // 3. Check Backend Loopback
+        try {
+            const res = await apiFetch({ path: '/wp-force-repair/v1/core/tools/check-loopback', method: 'POST' });
+            results.loopback.code = res.code;
+            results.loopback.status = res.status === 'ok' ? 'ok' : 'error';
+            results.loopback.message = res.message;
+        } catch (e) {
+            results.loopback.status = 'error';
+            results.loopback.message = e.message;
+        }
+
+        setStatus( results );
+        setChecking( false );
+    };
+
+    return (
+        <div className="wfr-system-tools-card card" style={{ marginTop: '20px', padding: '20px', maxWidth: '100%' }}>
+            <h3 style={{ marginTop: 0 }}>Connectivity Debugger</h3>
+            <p>Diagnose 403 errors, API blocks, and internal request failures.</p>
+            
+            <button className="button button-secondary" disabled={ checking } onClick={ checkConnectivity }>
+                { checking ? 'Testing...' : 'Test Connectivity' }
+            </button>
+
+            { status && (
+                <div style={{ marginTop: '15px', display: 'grid', gap: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span className={`dashicons dashicons-${status.ajax.status === 'blocked' ? 'no' : 'yes'}`} style={{ color: status.ajax.status === 'blocked' ? '#d63638' : 'green' }}></span>
+                        <strong>Frontend AJAX:</strong> 
+                        <span>{ status.ajax.status === 'blocked' ? 'BLOCKED (403 Forbidden)' : `Accessible (Code: ${status.ajax.code})` }</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span className={`dashicons dashicons-${status.rest.status === 'error' ? 'no' : 'yes'}`} style={{ color: status.rest.status === 'error' ? '#d63638' : 'green' }}></span>
+                        <strong>REST API:</strong> 
+                        <span>{ status.rest.status === 'error' ? `Error (${status.rest.code})` : 'Accessible' }</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span className={`dashicons dashicons-${status.loopback.status === 'error' ? 'no' : 'yes'}`} style={{ color: status.loopback.status === 'error' ? '#d63638' : 'green' }}></span>
+                        <strong>Loopback Request:</strong> 
+                        <span>{ status.loopback.status === 'error' ? `Failed (${status.loopback.code})` : 'Working' }</span>
+                    </div>
+                    
+                    { (status.ajax.status === 'blocked' || status.loopback.status === 'error') && (
+                        <div style={{ marginTop: '10px', color: '#d63638', fontSize: '13px', background: '#fcecec', padding: '10px', borderLeft: '4px solid #d63638' }}>
+                            <strong>Analysis:</strong><br/>
+                            { status.ajax.status === 'blocked' && <div>• <strong>Browser 403:</strong> Your security plugin or host WAF is blocking AJAX requests.</div> }
+                            { status.loopback.status === 'error' && <div>• <strong>Loopback Failed:</strong> The server cannot connect to itself. This breaks cron jobs and scheduled actions. Check Host/DNS.</div> }
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+};
 
 export default SystemHealth;

@@ -116,6 +116,14 @@ class CoreController {
 			},
 		] );
 
+		register_rest_route( 'wp-force-repair/v1', '/core/tools/check-loopback', [
+			'methods'             => 'POST',
+			'callback'            => [ $this, 'check_loopback' ],
+			'permission_callback' => function () {
+				return current_user_can( 'manage_options' );
+			},
+		] );
+
 		register_rest_route( 'wp-force-repair/v1', '/core/reinstall', [
 			'methods'             => 'POST',
 			'callback'            => [ $this, 'handle_clean_reinstall' ],
@@ -645,6 +653,34 @@ class CoreController {
             'success' => true,
             'message' => "Permissions Reset Complete. Fixed $count_dirs folders and $count_files files.",
             'errors' => $errors
+        ], 200 );
+    }
+
+    public function check_loopback() {
+        $url = admin_url( 'admin-ajax.php' );
+        $args = [
+            'timeout'   => 5,
+            'cookies'   => [],
+            'sslverify' => false, // We just want to check reachability
+        ];
+        
+        $response = wp_remote_get( $url, $args );
+        
+        if ( is_wp_error( $response ) ) {
+            return new \WP_REST_Response( [
+                'status' => 'error',
+                'message' => $response->get_error_message(),
+                'code' => 0
+            ], 200 );
+        }
+        
+        $code = wp_remote_retrieve_response_code( $response );
+        $message = wp_remote_retrieve_response_message( $response );
+        
+        return new \WP_REST_Response( [
+            'status' => ( $code >= 200 && $code < 300 ) || $code === 400 ? 'ok' : 'error', // 400 is ok for admin-ajax with no action
+            'code' => $code,
+            'message' => $message
         ], 200 );
     }
 
