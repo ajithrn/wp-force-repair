@@ -37,6 +37,7 @@ Fix common issues with one click:
 * **Flush Permalinks**: Fixes 404 "Page Not Found" errors.
 * **Reset Permissions**: Fixes "403 Forbidden" errors or file upload issues by resetting folders to 755 and files to 644.
 * **Regenerate Salts**: Logs out all users and invalidates cookies (useful if site hacked).
+* **Connection Tester**: Checks if your server can talk to itself (loopback). Essential for scheduled tasks (WP-Cron) and plugin updates.
 
 ### 5. Backup Manager (Beta)
 
@@ -86,7 +87,3 @@ Don't worry. Go to the **Quarantine** section at the bottom of the Core Manager 
 ### Q: Why isn't my premium plugin showing up for update?
 
 Currently, WP Force Repair connects to the **public** WordPress.org repository. It cannot force-update paid/premium plugins that require license keys or private APIs.
-
-### Q: What if I get a "White Screen of Death" (WSOD)?
-
-If you cannot access the admin area, you can use our upcoming **Emergency Rescue Mode** (Phase 4), which will be a standalone script you can upload via FTP.

@@ -50,14 +50,18 @@
 - [x] **Activation Manager**: Toggle Activate/Deactivate for plugins and themes.
 - [x] **Smart Detection**: Link plugins to their WP Registry page.
 
-## Phase 4: Emergency Rescue Mode (Planned)
+## Phase 4: Advanced System Tools (Planned)
 
-- [ ] **Standalone Rescue Script**:
-  - **Architecture**: No-WP-Load PHP script.
-  - **Disable Plugins**: Emergency deactivation of all plugins.
-  - **Rescue Theme**: Force switch to default theme (Twenty*).
-  - **Core/Plugin Reinstall**: Reinstall without admin access.
-  - **Force Install**: Upload ZIPs directly.
-  - **Emergency Backup**: Dump Database (SQL) & Zip Files (essential before repairs).
-  - **Root File Manager**: Manage files via web interface.
-  - **Rescue Admin**: Create emergency admin user via SQL.
+- [ ] **WP-Cron Manager**:
+  - View all scheduled cron events.
+  - Manually run specific cron jobs.
+  - Delete stuck or orphaned cron events.
+- [ ] **Server Information**:
+  - Detailed PHP info (Memory Limit, Max Execution Time).
+  - MySQL version and database size.
+  - Check for essential extensions (Zip, Curl, Imagick).
+- [ ] **Capabilities Manager**:
+  - Reset Administrator capabilities to default (fixes "Sorry, you are not allowed to access this page").
+  - Repair broken user roles.
+- [ ] **Mail Tester**:
+  - simple tool to verify if `wp_mail()` is working correctly.

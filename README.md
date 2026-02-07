@@ -1,6 +1,6 @@
 # WP Force Repair
 
-**WP Force Repair** is a specialized recovery tool designed to fix hacked or broken WordPress sites. It allows you to safely force re-install, update, or replace plugins and themes directly from the official repository, verifying file integrity.
+**WP Force Repair** is a specialized recovery and debugging tool designed to fix broken WordPress sites. It allows you to safely force re-install plugins/themes, repair core files, optimize your database, and inspect system health.
 
 ## Features
 
@@ -16,6 +16,7 @@
   - **Regenerate .htaccess**: Recreates your `.htaccess` file with a backup.
   - **Regenerate Salt Keys**: Refreshes security keys in `wp-config.php` and forces a logout for all users.
   - **Comment Cleanup**: Bulk delete Spam, Trash, or Pending comments.
+  - **Connection Tester**: Debugs PHP loopback requests and cURL availability.
   - **Reset Permissions**: Recursively fixes file (644) and folder (755) permissions.
 
 - **Database Health (New)**:

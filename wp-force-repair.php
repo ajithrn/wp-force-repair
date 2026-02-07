@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       WP Force Repair
  * Plugin URI:        https://github.com/ajithrn/wp-force-repair
- * Description:       The ultimate recovery tool. Force install plugins/themes, repair core files, and clean up malware/hacks.
+ * Description:       The ultimate recovery tool. Force install plugins/themes, repair core files, fix database health, and debug system issues.
  * Version:           2.5.3
  * Requires at least: 6.0
  * Requires PHP:      7.4
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'WFR_VERSION', '2.5.3' );
+define( 'WFR_VERSION', '2.5.4' );
 define( 'WFR_PATH', plugin_dir_path( __FILE__ ) );
 define( 'WFR_URL', plugin_dir_url( __FILE__ ) );
 
