@@ -1,4 +1,4 @@
-const { useState, useEffect } = wp.element;
+const { useState, useEffect, useMemo } = wp.element;
 const apiFetch = wp.apiFetch;
 import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
@@ -11,6 +11,7 @@ const DatabaseHealth = () => {
     const [ optimizing, setOptimizing ] = useState( false );
     const [ selectedTables, setSelectedTables ] = useState( [] );
     const [ recalculating, setRecalculating ] = useState( false );
+    const [ sortConfig, setSortConfig ] = useState({ key: 'size_raw', direction: 'desc' });
 
     useEffect( () => {
         fetchStats();
@@ -120,6 +121,27 @@ const DatabaseHealth = () => {
         }
     };
 
+    const sortedTables = useMemo(() => {
+        if (!stats?.all_tables) return [];
+        let sortable = [...stats.all_tables];
+        if (sortConfig.key) {
+            sortable.sort((a, b) => {
+                if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;
+                if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+        return sortable;
+    }, [stats, sortConfig]);
+
+    const requestSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
     if ( loading ) {
         return <div className="notice notice-info inline" style={{ marginTop: '20px' }}><p>Loading database details...</p></div>;
     }
@@ -130,9 +152,14 @@ const DatabaseHealth = () => {
 
     return (
         <div className="wfr-database-health-view" style={{ marginTop: '20px' }}>
-            <div className="wfr-section-header" style={{ marginBottom: '20px' }}>
-                <h2 className="title">Database Health</h2>
-                <p className="description">Monitor your database performance and clean up overhead.</p>
+            <div className="wfr-section-header" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <h2 className="title">Database Health</h2>
+                    <p className="description">Monitor your database performance and clean up overhead.</p>
+                </div>
+                <button className="button button-secondary" onClick={fetchStats} disabled={loading}>
+                    <span className="dashicons dashicons-update" style={{ marginTop: '3px' }}></span> Refresh
+                </button>
             </div>
 
             <div className="notice notice-warning inline" style={{ marginBottom: '20px', borderLeft: '4px solid #dba617' }}>
@@ -140,7 +167,6 @@ const DatabaseHealth = () => {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginBottom: '20px' }}>
-                {/* Cards remain same... */}
                 <div className="card" style={{ padding: '20px', borderLeft: '4px solid #2271b1' }}>
                     <h3 style={{ margin: 0, fontSize: '14px', color: '#646970' }}>Total Size</h3>
                     <div style={{ fontSize: '24px', fontWeight: 'bold', marginTop: '5px' }}>
@@ -197,24 +223,33 @@ const DatabaseHealth = () => {
                     </div>
                 </div>
                 
-                { stats.all_tables && stats.all_tables.length > 0 ? (
+                { sortedTables && sortedTables.length > 0 ? (
                     <table className="widefat striped" style={{ border: 'none', width: '100%' }}>
                         <thead>
                             <tr>
                                 <td id="cb" className="manage-column column-cb check-column">
                                     <input type="checkbox" onChange={ toggleSelectAll } checked={ selectedTables.length === stats.all_tables.length } />
                                 </td>
-                                <th style={{ paddingLeft: '10px', textAlign: 'left' }}>Table Name</th>
-                                <th style={{ textAlign: 'center' }}>Rows</th>
-                                <th style={{ textAlign: 'center' }}>Size</th>
-                                <th style={{ textAlign: 'center' }}>Overhead</th>
+                                <th style={{ paddingLeft: '10px', textAlign: 'left', cursor: 'pointer' }} onClick={() => requestSort('name')}>
+                                    Table Name { sortConfig.key === 'name' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '' }
+                                </th>
+                                <th style={{ textAlign: 'left' }}>Belongs To</th>
+                                <th style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => requestSort('rows')}>
+                                    Rows { sortConfig.key === 'rows' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '' }
+                                </th>
+                                <th style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => requestSort('size_raw')}>
+                                    Size { sortConfig.key === 'size_raw' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '' }
+                                </th>
+                                <th style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => requestSort('overhead_raw')}>
+                                    Overhead { sortConfig.key === 'overhead_raw' ? (sortConfig.direction === 'asc' ? '▲' : '▼') : '' }
+                                </th>
                                 <th style={{ textAlign: 'center' }}>Engine</th>
                                 <th style={{ textAlign: 'right', paddingRight: '20px' }}>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            { stats.all_tables.map( ( table, i ) => {
-                                const isCore = ['users', 'usermeta', 'posts', 'postmeta', 'comments', 'commentmeta', 'options', 'terms', 'term_taxonomy', 'term_relationships', 'termmeta', 'links'].some( base => table.name === stats.prefix + base );
+                            { sortedTables.map( ( table, i ) => {
+                                const isCore = table.plugin_status === 'core';
                                 
                                 return (
                                 <tr key={ i }>
@@ -226,6 +261,26 @@ const DatabaseHealth = () => {
                                         />
                                     </th>
                                     <td style={{ paddingLeft: '10px', fontWeight: '500', textAlign: 'left' }}>{ table.name }</td>
+                                    <td style={{ textAlign: 'left' }}>
+                                        { isCore ? (
+                                             <span style={{ color: '#00a32a', fontWeight: 500 }}>WordPress Core</span>
+                                        ) : (
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <span style={{ 
+                                                    width: '8px', height: '8px', borderRadius: '50%', 
+                                                    background: table.plugin_status === 'active' ? '#00a32a' : (table.plugin_status === 'inactive' ? '#d63638' : '#999') 
+                                                }} title={ table.plugin_status === 'active' ? 'Active Plugin' : 'Inactive Plugin' }></span>
+                                                
+                                                { table.plugin !== 'Unknown' ? (
+                                                    table.plugin_slug ? (
+                                                        <a href={`https://wordpress.org/plugins/${table.plugin_slug}/`} target="_blank" style={{ textDecoration: 'none', fontWeight: 600 }}>{ table.plugin }</a>
+                                                    ) : (
+                                                        <span>{ table.plugin }</span>
+                                                    )
+                                                ) : <span style={{ color: '#999' }}>Unknown / Custom</span> }
+                                            </span>
+                                        )}
+                                    </td>
                                     <td style={{ textAlign: 'center' }}>{ table.rows }</td>
                                     <td style={{ textAlign: 'center' }}>{ table.size }</td>
                                     <td style={{ textAlign: 'center', color: table.overhead_raw > 0 ? '#d63638' : 'inherit' }}>{ table.overhead }</td>
@@ -244,7 +299,6 @@ const DatabaseHealth = () => {
                                             <button 
                                                 className="button button-link-delete"
                                                 onClick={ async () => {
-                                                    // ... (delete logic remains same) ...
                                                     const confirm = await MySwal.fire({
                                                         title: 'Delete Table?',
                                                         html: `Are you sure you want to drop <b>${table.name}</b>?<br>This cannot be undone!`,

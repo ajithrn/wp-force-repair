@@ -132,6 +132,9 @@ class DatabaseController extends \WP_REST_Controller {
             $formatted_size = ($size > 0) ? $this->format_size( $size ) : 'N/A';
             $formatted_overhead = ($data_free > 0) ? $this->format_size( $data_free ) : '';
 
+            // Detect Owner
+            $owner = $this->detect_table_owner( $name );
+
             $all_tables[] = [
                 'name' => $name,
                 'rows' => $rows,
@@ -139,7 +142,10 @@ class DatabaseController extends \WP_REST_Controller {
                 'size_raw' => $size,
                 'overhead' => $formatted_overhead,
                 'overhead_raw' => $data_free,
-                'engine' => $engine
+                'engine' => $engine,
+                'plugin' => $owner['name'],
+                'plugin_status' => $owner['status'],
+                'plugin_slug' => $owner['slug'] ?? ''
             ];
         }
 
@@ -165,6 +171,119 @@ class DatabaseController extends \WP_REST_Controller {
             'debug_raw' => !empty($tables) ? $tables[0] : null,
             'debug_real_count' => $real_user_count
         ], 200 );
+    }
+
+    private $plugin_cache = null;
+
+    private function detect_table_owner( $table_name ) {
+        global $wpdb;
+
+        // Strip prefix
+        $prefix = $wpdb->prefix;
+        $clean_name = $table_name;
+        if ( strpos( $table_name, $prefix ) === 0 ) {
+            $clean_name = substr( $table_name, strlen( $prefix ) );
+        }
+
+        // 1. Core Tables
+        $core_tables = [
+            'users', 'usermeta', 'posts', 'postmeta', 'comments', 'commentmeta', 
+            'terms', 'termmeta', 'term_taxonomy', 'term_relationships', 'options', 'links'
+        ];
+        if ( in_array( $clean_name, $core_tables ) ) {
+            return [ 'name' => 'WordPress Core', 'status' => 'core' ];
+        }
+
+        // 2. Build Plugin Cache (Once)
+        if ( $this->plugin_cache === null ) {
+            if ( ! function_exists( 'get_plugins' ) ) {
+                require_once ABSPATH . 'wp-admin/includes/plugin.php';
+            }
+            
+            $all_plugins = get_plugins();
+            $active_plugins = get_option( 'active_plugins', [] );
+            $this->plugin_cache = [];
+
+            foreach ( $all_plugins as $path => $data ) {
+                $status = in_array( $path, $active_plugins ) || is_plugin_active_for_network( $path ) ? 'active' : 'inactive';
+                
+                $candidates = [];
+
+                // 1. Slug (e.g. 'example-plugin') -> 'example_plugin'
+                $slug = dirname( $path );
+                if ( $slug === '.' ) $slug = basename( $path, '.php' );
+                $candidates[] = str_replace( '-', '_', $slug );
+
+                // 2. Acronyms from Name (e.g. "Example Plugin Pro" -> "epp", "My Plugin" -> "mp")
+                // Remove generic words? Maybe not, 'wp' is common.
+                $name_parts = preg_split( '/[\s\-_]+/', strtolower( $data['Name'] ) );
+                $acronym = '';
+                foreach ( $name_parts as $part ) {
+                    if ( is_numeric( $part ) ) {
+                        $acronym .= $part; // Keep numbers like '7'
+                    } elseif ( ! empty( $part ) ) {
+                        $acronym .= $part[0]; // First letter
+                    }
+                }
+                if ( strlen( $acronym ) >= 2 ) { // Min 2 chars for acronyms
+                    $candidates[] = $acronym;
+                }
+
+                // 3. Known Manual Map (The "Efficiency" part - defining exceptions)
+                $exceptions = [
+                    'wp-optimize' => ['wpo', 'tm'], // WP-Optimize
+                    'woocommerce' => ['wc'],
+                    'wordfence'   => ['wf'],
+                    'gravityforms'=> ['gf'],
+                    'elementor'   => ['e'], // 'e_' is rare but used by some addons
+                ];
+                
+                if ( isset( $exceptions[ $slug ] ) ) {
+                    foreach ( $exceptions[ $slug ] as $ex ) {
+                        $candidates[] = $ex;
+                    }
+                }
+
+                // 4. Text Domain
+                if ( ! empty( $data['TextDomain'] ) ) {
+                    $candidates[] = str_replace( '-', '_', $data['TextDomain'] );
+                }
+
+                // Filter & Clean
+                $candidates = array_unique( $candidates );
+                $candidates = array_filter( $candidates, function($c) { return strlen($c) >= 2; } );
+
+                // Clean Display Name (e.g. "Example Plugin - Pro Version" -> "Example Plugin")
+                $clean_display_name = preg_split( '/\s+[-|:]\s+/', $data['Name'] )[0];
+
+                foreach ( $candidates as $prefix ) {
+                    $this->plugin_cache[] = [
+                        'prefix' => $prefix,
+                        'name'   => $clean_display_name,
+                        'status' => $status,
+                        'slug'   => $slug  // Storing Slug for WP.org link
+                    ];
+                }
+            }
+
+            // Sort cache by prefix length descending (Longest match wins)
+            usort( $this->plugin_cache, function($a, $b) {
+                return strlen( $b['prefix'] ) - strlen( $a['prefix'] );
+            } );
+        }
+
+        // 3. Find Match
+        foreach ( $this->plugin_cache as $p ) {
+            if ( strpos( $clean_name, $p['prefix'] ) === 0 ) {
+                return [
+                    'name' => $p['name'],
+                    'status' => $p['status'],
+                    'slug' => $p['slug']
+                ];
+            }
+        }
+
+        return [ 'name' => 'Unknown', 'status' => 'unknown', 'slug' => '' ];
     }
 
     public function optimize_database( $request ) {
