@@ -18,6 +18,16 @@
   - **Comment Cleanup**: Bulk delete Spam, Trash, or Pending comments.
   - **Reset Permissions**: Recursively fixes file (644) and folder (755) permissions.
 
+- **Database Health (New)**:
+  - **Overview**: View all database tables with size, row count, and overhead.
+  - **Plugin Detection**: Identifies which plugin owns each table (with links to WP Repo).
+  - **Optimization**: Optimize tables to reduce overhead and improve performance.
+  - **Cleanup**: Delete tables left behind by old plugins.
+
+- **Plugin & Theme Manager**:
+  - **Toggle Status**: Activate or Deactivate plugins/themes directly from the list.
+  - **Force Update**: Re-install any plugin/theme from the official repository.
+
 - **Backup Manager (Beta)**:
   - **Full File Backup**: Download your entire WordPress root directory as a ZIP (smartly excludes backups and node_modules).
   - **Database Dump**: Export your full database (SQL) using fast `mysqldump` or robust PHP fallback mode.

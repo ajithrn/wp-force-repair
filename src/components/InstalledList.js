@@ -52,6 +52,30 @@ const InstalledList = ( { type, onReinstall } ) => {
         }
     };
 
+    const handleToggleStatus = async ( item ) => {
+        const id = type === 'plugin' ? item.file : item.slug;
+        const newAction = item.status === 'active' ? 'deactivate' : 'activate';
+        
+        // Confirmation for deactivation
+        if ( newAction === 'deactivate' && ! confirm( `Are you sure you want to deactivate ${item.name}?` ) ) {
+            return;
+        }
+
+        setLoading( true );
+        try {
+            await apiFetch( {
+                path: '/wp-force-repair/v1/installed/toggle',
+                method: 'POST',
+                data: { type, slug: id, action: newAction }
+            } );
+            // Refresh list to reflect changes
+            fetchInstalled();
+        } catch ( err ) {
+            alert( 'Error changing status: ' + err.message );
+            setLoading( false );
+        }
+    };
+
     // --- Bulk Action Handlers ---
 
     const toggleSelectAll = ( e ) => {
@@ -163,6 +187,22 @@ const InstalledList = ( { type, onReinstall } ) => {
                         )}
                     </div>
                     <div className="wfr-row-actions" style={{ display: 'flex', gap: '5px', marginLeft: '10px' }}>
+                        {/* Status Toggle Button */}
+                        <button 
+                            className={`button button-small ${item.status === 'active' ? '' : 'button-primary'}`}
+                            onClick={ () => handleToggleStatus( item ) }
+                            disabled={ loading }
+                            style={{ 
+                                height: '24px', 
+                                lineHeight: '22px', 
+                                padding: '0 8px',
+                                borderColor: item.status === 'active' ? '#d63638' : undefined,
+                                color: item.status === 'active' ? '#d63638' : undefined
+                            }}
+                        >
+                            { item.status === 'active' ? 'Deactivate' : 'Activate' }
+                        </button>
+
                         <button 
                             className="button button-small" /* Smaller buttons */
                             onClick={ () => onReinstall( item.slug, type, null ) }

@@ -46,6 +46,25 @@ Before making major repairs, it is always safe to take a backup.
 * **Download Database**: Exports your database as a SQL file (`backup-{site-name}-db-{date}.sql` or `.zip`).
 * **Auto-Cleanup**: After downloading, the plugin will ask if you want to delete the backup file from the server. We recommend clicking **Delete** to save space and keep your server clean.
 
+### 5. Database Health
+
+Optimize your database by cleaning up overhead and removing unused tables.
+
+* **Plugin Detection**: The "Belongs To" column shows which plugin created each table.
+  * **Green Dot**: Active Plugin.
+  * **Red Dot**: Inactive Plugin (Safe to delete if plugin is removed?).
+  * **Click Name**: Links to the official WordPress plugin page for more info.
+* **Optimize**: Click "Optimize" to defragment tables and reclaim space.
+* **Sorting**: Click column headers to sort by Size, Rows, or Overhead.
+
+### 6. Managing Plugins & Themes
+
+You can manage your installed extensions directly:
+
+* **Toggle Status**: Click **Activate** or **Deactivate** to quickly enable/disable plugins.
+* **Force Reinstall**: If a plugin is acting up, click "Reinstall" to replace it with a fresh copy from the repository.
+* **Delete**: Permanently remove the plugin files.
+
 ---
 
 ## Frequently Asked Questions (FAQ)

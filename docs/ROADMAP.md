@@ -36,13 +36,19 @@
   - Support for `mysqldump` (fast) with PHP fallback (compatible).
   - Gzip compression.
 
-- [ ] **Database Health Check**:
-  - Structural integrity check of Core Tables.
-  - Automated `REPAIR TABLE` for corrupted tables.
+- [x] **Database Health Check**:
+  - [x] Structural integrity check of Core Tables.
+  - [x] **Plugin Detection**: Identify table owners and status (Active/Inactive).
+  - [x] **Optimization**: Optimize tables and reduce overhead.
 - [ ] **Cleanup & Optimization**:
   - Remove expired transients.
   - Clean orphaned Post Meta and Term Relationships.
   - Drop unknown/spam tables (with backup options).
+
+## Phase 3: Plugin & Theme Manager (Completed)
+
+- [x] **Activation Manager**: Toggle Activate/Deactivate for plugins and themes.
+- [x] **Smart Detection**: Link plugins to their WP Registry page.
 
 ## Phase 4: Emergency Rescue Mode (Planned)
 

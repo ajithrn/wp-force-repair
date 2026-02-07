@@ -1,11 +1,17 @@
 <?php
 /**
- * Plugin Name: WP Force Repair
- * Description: The ultimate recovery tool. Force install plugins/themes, repair core files, and clean up malware/hacks.
- * Version: 2.5.2
- * Author: Ajith R N
- * Author URI: https://ajithrn.com
- * Text Domain: wp-force-repair
+ * Plugin Name:       WP Force Repair
+ * Plugin URI:        https://github.com/ajithrn/wp-force-repair
+ * Description:       The ultimate recovery tool. Force install plugins/themes, repair core files, and clean up malware/hacks.
+ * Version:           2.5.3
+ * Requires at least: 6.0
+ * Requires PHP:      7.4
+ * Author:            Ajith R N
+ * Author URI:        https://ajithrn.com
+ * License:           GPL v2 or later
+ * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain:       wp-force-repair
+ * Domain Path:       /languages
  */
 
 namespace WPForceRepair;
@@ -14,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'WFR_VERSION', '2.5.2' );
+define( 'WFR_VERSION', '2.5.3' );
 define( 'WFR_PATH', plugin_dir_path( __FILE__ ) );
 define( 'WFR_URL', plugin_dir_url( __FILE__ ) );
 
