@@ -18,9 +18,22 @@ const DatabaseHealth = () => {
     }, [] );
 
     const fetchStats = async () => {
+        setLoading( true );
         try {
             const res = await apiFetch({ path: '/wp-force-repair/v1/database/health' });
             setStats( res );
+            
+            // If called manually (via button), show feedback
+            if ( document.activeElement && document.activeElement.tagName === 'BUTTON' ) {
+                MySwal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'success',
+                    title: 'Stats Refreshed',
+                    showConfirmButton: false,
+                    timer: 2000
+                });
+            }
         } catch(e) {
             console.error(e);
             MySwal.fire({
@@ -72,6 +85,16 @@ const DatabaseHealth = () => {
         if ( ! result.isConfirmed ) return;
 
         setOptimizing( true );
+        
+        // Show persistent loading modal
+        MySwal.fire({
+            title: 'Optimizing...',
+            text: 'Please wait while we optimize your database tables.',
+            allowOutsideClick: false,
+            didOpen: () => {
+                MySwal.showLoading();
+            }
+        });
         
         const tablesToOptimize = targetTables || [];
         
