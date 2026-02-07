@@ -1,14 +1,36 @@
-const { useState } = wp.element;
+const { useState, useEffect } = wp.element;
 const apiFetch = wp.apiFetch;
 import icons from '../icons'; 
 import InstalledList from './InstalledList';
 import InstallerOverlay from './InstallerOverlay';
 import CoreManager from './CoreManager';
+import DatabaseHealth from './DatabaseHealth';
 import SystemHealth from './SystemHealth';
 import Help from './Help';
 
 const Dashboard = () => {
-    const [ view, setView ] = useState( 'installed' ); 
+    // Helper to get view from hash or default
+    const getHashView = () => {
+        const hash = window.location.hash.replace('#', '');
+        const validViews = ['installed_plugins', 'installed_themes', 'core', 'database', 'system_health', 'help'];
+        return validViews.includes(hash) ? hash : 'installed_plugins';
+    };
+
+    const [ view, setView ] = useState( getHashView() ); 
+
+    // Sync state with hash changes
+    useEffect(() => {
+        const onHashChange = () => setView( getHashView() );
+        window.addEventListener('hashchange', onHashChange);
+        return () => window.removeEventListener('hashchange', onHashChange);
+    }, []);
+
+    // Update hash when view changes (if not already matching)
+    useEffect(() => {
+        if ( window.location.hash.replace('#', '') !== view ) {
+            window.location.hash = view;
+        }
+    }, [ view ]); 
     
     // Installer State
     const [ isInstalling, setIsInstalling ] = useState( false );
@@ -104,6 +126,13 @@ const Dashboard = () => {
                 </a>
                 <a 
                     href="#" 
+                    className={`nav-tab ${ view === 'database' ? 'nav-tab-active' : '' }`}
+                    onClick={(e) => { e.preventDefault(); setView('database'); }}
+                >
+                    Database Health
+                </a>
+                <a 
+                    href="#" 
                     className={`nav-tab ${ view === 'system_health' ? 'nav-tab-active' : '' }`}
                     onClick={(e) => { e.preventDefault(); setView('system_health'); }}
                 >
@@ -122,6 +151,7 @@ const Dashboard = () => {
                 { ( view === 'installed_plugins' || view === 'installed' ) && <InstalledList type="plugin" onReinstall={ handleInstall } /> }
                 { view === 'installed_themes' && <InstalledList type="theme" onReinstall={ handleInstall } /> }
                 { view === 'core' && <CoreManager /> }
+                { view === 'database' && <DatabaseHealth /> }
                 { view === 'system_health' && <SystemHealth /> }
                 { view === 'help' && <Help /> }
             </div>

@@ -60,6 +60,32 @@ class BackupController extends \WP_REST_Controller {
     }
 
     public function create_backup( $request ) {
+        // Clear any previous output (warnings, notices, whitespace)
+        if ( ob_get_length() ) ob_clean();
+        
+        // Start fresh buffer
+        ob_start();
+
+        // Register shutdown function to catch Fatal Errors (Timeouts/OOM)
+        register_shutdown_function( function() {
+            $error = error_get_last();
+            if ( $error && in_array( $error['type'], [ E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR ] ) ) {
+                // If we are here, script died. Clean buffer and output JSON.
+                ob_clean(); 
+                // Set correct header
+                if ( ! headers_sent() ) {
+                    header( 'Content-Type: application/json; charset=UTF-8' );
+                    http_response_code( 500 );
+                }
+                echo json_encode( [
+                    'code' => 'fatal_error',
+                    'message' => 'Process terminated unexpectedly: ' . $error['message'],
+                    'data' => [ 'status' => 500 ]
+                ] );
+                exit;
+            }
+        } );
+
         @set_time_limit( 0 ); // Infinite time
         $type = $request->get_param( 'type' ); // 'db' or 'files'
         $exclude_media = $request->get_param( 'exclude_media' );
@@ -95,14 +121,17 @@ class BackupController extends \WP_REST_Controller {
                 }
             } elseif ( $type === 'files' ) {
                 if ( ! class_exists( 'ZipArchive' ) ) {
-                    return new \WP_Error( 'no_zip', 'ZipArchive extension missing on server.' );
+                    throw new \Exception( 'ZipArchive extension missing on server.' );
                 }
                 $filename .= '.zip';
                 $file_path = $this->backup_dir . $filename;
                 $this->zip_files( $file_path, $exclude_media );
             } else {
-                return new \WP_Error( 'invalid_type', 'Invalid backup type.' );
+                 throw new \Exception( 'Invalid backup type.' );
             }
+            
+            // Success! Clean buffer before returning
+            ob_end_clean();
 
             return new \WP_REST_Response( [
                 'success' => true,
@@ -112,6 +141,7 @@ class BackupController extends \WP_REST_Controller {
             ], 200 );
 
         } catch ( \Exception $e ) {
+            ob_end_clean();
             return new \WP_Error( 'backup_failed', $e->getMessage() );
         }
     }

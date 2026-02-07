@@ -30,6 +30,18 @@ const Help = () => {
         {
             q: 'How do I restore a Quarantine file?',
             a: 'Go to the "WordPress Core" tab and check the "Quarantine" section at the bottom. Click "Restore" next to any file to move it back to its original location.'
+        },
+        {
+            q: 'What does "Optimize Database" do?',
+            a: 'It runs the <code>OPTIMIZE TABLE</code> command on your database tables. This reclaims unused space (overhead) caused by deleting or updating content, which can improve performance.'
+        },
+        {
+            q: 'Is it safe to delete tables?',
+            a: '<strong>Be very careful!</strong> Deleting a table is permanent. Only delete tables if you are sure they belong to a plugin you have already removed. We protect core WordPress tables from being deleted.'
+        },
+        {
+            q: 'What is "Autoload Size"?',
+            a: 'This is the total size of options loaded on <em>every</em> page visit. A high value (over 1MB) can slow down your site. You should investigate plugins storing large data in the <code>wp_options</code> table.'
         }
     ];
 
