@@ -219,8 +219,27 @@ class SystemToolsController extends \WP_REST_Controller {
         $root = ABSPATH;
         
         try {
+            $dir_iterator = new \RecursiveDirectoryIterator( $root, \RecursiveDirectoryIterator::SKIP_DOTS );
+            
+            // Use filter to prevent entering forbidden directories (avoids permission errors)
+            $filter = new \RecursiveCallbackFilterIterator( $dir_iterator, function( $current, $key, $iterator ) {
+                // Allow non-directories
+                if ( ! $current->isDir() ) return true;
+
+                $name = $current->getFilename();
+                
+                // Exclude dot folders (like .git, .idea) - except the root parts if needed, but usually safe to skip hidden config dirs
+                if ( substr( $name, 0, 1 ) === '.' ) return false;
+
+                // Exclude specific heavy/protected folders
+                $forbidden = [ 'node_modules', 'wfr-quarantine', 'wfr-backups', 'vendor' ];
+                if ( in_array( $name, $forbidden ) ) return false;
+
+                return true;
+            });
+
             $iterator = new \RecursiveIteratorIterator(
-                new \RecursiveDirectoryIterator( $root, \RecursiveDirectoryIterator::SKIP_DOTS ),
+                $filter, 
                 \RecursiveIteratorIterator::SELF_FIRST
             );
         } catch ( \Exception $e ) {
@@ -244,15 +263,8 @@ class SystemToolsController extends \WP_REST_Controller {
                     break;
                 }
 
-                // Skip .git, node_modules, and WFR protected folders (Quarantine/Backups)
-                if ( 
-                    strpos( $item->getPathname(), '.git' ) !== false || 
-                    strpos( $item->getPathname(), 'node_modules' ) !== false ||
-                    strpos( $item->getPathname(), 'wfr-quarantine' ) !== false ||
-                    strpos( $item->getPathname(), 'wfr-backups' ) !== false
-                ) {
-                    continue;
-                }
+                // Double check exclusion (redundant but safe)
+                if ( strpos( $item->getPathname(), 'wfr-quarantine' ) !== false ) continue;
 
                 try {
                     $path = $item->getPathname();
