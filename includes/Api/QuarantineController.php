@@ -158,6 +158,16 @@ class QuarantineController extends \WP_REST_Controller {
                 if ( rename( $source, $dest_path ) ) {
                     // SECURE THE FILE: Remove execution/read permissions for world
                     @chmod( $dest_path, 0600 );
+                    
+                    // SAVE METADATA: needed to restore to correct subdirectory
+                    $meta_path = $dest_path . '.json';
+                    $metadata = [
+                        'original_path' => $rel_path,
+                        'quarantined_at' => time()
+                    ];
+                    file_put_contents( $meta_path, json_encode( $metadata ) );
+                    @chmod( $meta_path, 0600 );
+
                     $moved[] = $rel_path;
                 } else {
                     $errors[] = "Failed to move $rel_path";
@@ -189,6 +199,9 @@ class QuarantineController extends \WP_REST_Controller {
                     foreach ( $subfiles as $f ) {
                         if ( $f === '.' || $f === '..' ) continue;
                         
+                        // Skip metadata files in listing
+                        if ( substr( $f, -5 ) === '.json' ) continue;
+
                         // Parse original name from randomized name
                         // Format: original.php.quarantined.xyz123
                         // We strip .quarantined.*
@@ -197,10 +210,22 @@ class QuarantineController extends \WP_REST_Controller {
                         if ( $clean_name === $f ) {
                             $clean_name = str_replace( '.quarantined', '', $f );
                         }
+                        
+                        // Check for metadata
+                        $meta_path = $base_dir . $folder . '/' . $f . '.json';
+                        $original_path = $clean_name; // Default fallback
+                        
+                        if ( file_exists( $meta_path ) ) {
+                            $meta = json_decode( file_get_contents( $meta_path ), true );
+                            if ( $meta && isset( $meta['original_path'] ) ) {
+                                $original_path = $meta['original_path'];
+                            }
+                        }
 
                         $files[] = [
                             'name' => $f, // Real filename on disk (randomized)
                             'original_name' => $clean_name, // Human readable
+                            'original_path' => $original_path, // Full relative path including subdirs
                             'path' => $folder . '/' . $f,
                             'size' => size_format( filesize( $base_dir . $folder . '/' . $f ) )
                         ];
@@ -240,14 +265,39 @@ class QuarantineController extends \WP_REST_Controller {
         }
 
         $filename = basename( $full_source );
+        $meta_path = $full_source . '.json';
         
-        // Remove .quarantined suffix if present (including random part)
-        $original_filename = preg_replace( '/\.quarantined(\.[a-f0-9]+)?$/', '', $filename );
+        $dest_rel_path = '';
+
+        // Try to get original path from metadata
+        if ( file_exists( $meta_path ) ) {
+            $meta = json_decode( file_get_contents( $meta_path ), true );
+            if ( $meta && isset( $meta['original_path'] ) ) {
+                $dest_rel_path = $meta['original_path'];
+            }
+        }
+
+        // Fallback if no metadata (old quarantines)
+        if ( empty( $dest_rel_path ) ) {
+             // Remove .quarantined suffix if present (including random part)
+            $dest_rel_path = preg_replace( '/\.quarantined(\.[a-f0-9]+)?$/', '', $filename );
+        }
         
-        $dest = ABSPATH . $original_filename;
+        // Ensure path starts with no slash
+        $dest_rel_path = ltrim( $dest_rel_path, '/' );
+        
+        $dest = ABSPATH . $dest_rel_path;
+        $dest_dir = dirname( $dest );
+
+        // Ensure destination directory exists!
+        if ( ! is_dir( $dest_dir ) ) {
+             if ( ! wp_mkdir_p( $dest_dir ) ) {
+                 return new \WP_Error( 'mkdir_failed', "Could not create directory: $dest_dir" );
+             }
+        }
 
         if ( file_exists( $dest ) ) {
-            return new \WP_Error( 'file_exists', 'File already exists in root. Please delete it first or rename it.' );
+            return new \WP_Error( 'file_exists', "File already exists at destination ($dest_rel_path). Please delete it first or rename it." );
         }
 
         if ( rename( $full_source, $dest ) ) {
@@ -255,13 +305,16 @@ class QuarantineController extends \WP_REST_Controller {
             $perms = is_dir( $dest ) ? 0755 : 0644;
             @chmod( $dest, $perms );
 
+            // Cleanup metadata
+            if ( file_exists( $meta_path ) ) unlink( $meta_path );
+
             // Check if folder is empty (ignoring .DS_Store), if so delete folder
             $dir = dirname( $full_source );
             $this->maybe_delete_empty_folder( $dir );
 
-            return new \WP_REST_Response( [ 'success' => true, 'message' => "Restored $original_filename to root." ], 200 );
+            return new \WP_REST_Response( [ 'success' => true, 'message' => "Restored to $dest_rel_path" ], 200 );
         } else {
-            return new \WP_Error( 'restore_failed', 'Failed to move file back to root.' );
+            return new \WP_Error( 'restore_failed', 'Failed to move file back.' );
         }
     }
 
@@ -284,6 +337,10 @@ class QuarantineController extends \WP_REST_Controller {
         }
 
         if ( unlink( $full_source ) ) {
+            // Cleanup metadata
+            $meta_path = $full_source . '.json';
+            if ( file_exists( $meta_path ) ) unlink( $meta_path );
+
             // Check if folder is empty (ignoring .DS_Store), if so delete folder
             $dir = dirname( $full_source );
             $this->maybe_delete_empty_folder( $dir );

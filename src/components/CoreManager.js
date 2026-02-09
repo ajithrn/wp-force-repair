@@ -149,10 +149,20 @@ const CoreManager = () => {
         }
     };
 
-    const handleRestore = async ( path ) => {
+    const handleRestore = async ( fileOrPath ) => {
+        let path = fileOrPath;
+        let originalPath = null;
+        
+        if ( typeof fileOrPath === 'object' && fileOrPath !== null ) {
+            path = fileOrPath.path;
+            originalPath = fileOrPath.original_path;
+        }
+
+        const destination = originalPath ? originalPath : 'the root directory';
+
         const result = await MySwal.fire({
             title: 'Restore File?',
-            text: `Restore this file to the root directory?\n${path}`,
+            text: `Restore this file to ${destination}?`,
             icon: 'question',
             showCancelButton: true,
             confirmButtonText: 'Yes, restore it!'

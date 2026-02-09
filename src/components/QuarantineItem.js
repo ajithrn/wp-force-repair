@@ -42,14 +42,26 @@ const QuarantineItem = ({ data, onDeleteFolder, onRestore, onDeleteFile }) => {
                         { data.files.map( ( file, j ) => (
                             <tr key={ j }>
                                 <td>
-                                    <span style={{ display: 'flex', alignItems: 'center' }}>
-                                        <span className="dashicons dashicons-media-text" style={{ marginRight: '4px', color: '#8c8f94' }}></span>
-                                        {file.name}
-                                    </span>
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ display: 'flex', alignItems: 'center', fontWeight: file.original_path ? 600 : 400 }}>
+                                            <span className="dashicons dashicons-media-text" style={{ marginRight: '4px', color: '#8c8f94' }}></span>
+                                            { file.original_name || file.name }
+                                        </span>
+                                        { file.original_path && (
+                                            <span style={{ fontSize: '11px', color: '#666', marginLeft: '24px' }}>
+                                                Location: { file.original_path }
+                                            </span>
+                                        )}
+                                        { file.original_name && file.name !== file.original_name && (
+                                             <span style={{ fontSize: '10px', color: '#999', marginLeft: '24px' }}>
+                                                ID: { file.name }
+                                             </span>
+                                        )}
+                                    </div>
                                 </td>
                                 <td style={{ width: '80px' }}>{ file.size }</td>
                                 <td style={{ textAlign: 'right', width: '200px' }}>
-                                    <button className="button button-small" onClick={ () => onRestore( file.path ) } style={{ marginRight: '5px' }}>Restore</button>
+                                    <button className="button button-small" onClick={ () => onRestore( file ) } style={{ marginRight: '5px' }}>Restore</button>
                                     <button className="button button-small button-link-delete" onClick={ () => onDeleteFile( file.path ) } style={{ color: '#a00' }}>Delete</button>
                                 </td>
                             </tr>
