@@ -251,6 +251,10 @@ class QuarantineController extends \WP_REST_Controller {
         }
 
         if ( rename( $full_source, $dest ) ) {
+            // Restore permissions: 0755 for folders, 0644 for files.
+            $perms = is_dir( $dest ) ? 0755 : 0644;
+            @chmod( $dest, $perms );
+
             // Check if folder is empty (ignoring .DS_Store), if so delete folder
             $dir = dirname( $full_source );
             $this->maybe_delete_empty_folder( $dir );
