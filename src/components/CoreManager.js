@@ -14,6 +14,7 @@ const CoreManager = () => {
     const [ suspectedFiles, setSuspectedFiles ] = useState( [] );
     const [ selectedFiles, setSelectedFiles ] = useState( [] );
     const [ quarantinedData, setQuarantinedData ] = useState( [] );
+    const [ currentPath, setCurrentPath ] = useState( '' ); // New state for navigation
     
     // Installer Overlay State
     const [ isInstalling, setIsInstalling ] = useState( false );
@@ -23,7 +24,7 @@ const CoreManager = () => {
 
     useEffect( () => {
         fetchStatus();
-        scanFiles();
+        scanFiles(); // Initial scan
         fetchQuarantined(); 
     }, [] );
 
@@ -38,15 +39,33 @@ const CoreManager = () => {
         setLoading( false );
     };
 
-    const scanFiles = async () => {
+    const scanFiles = async ( path = currentPath ) => {
         setScanning( true );
         try {
-            const data = await apiFetch( { path: '/wp-force-repair/v1/core/scan', method: 'POST' } );
-            setSuspectedFiles( data.suspected_files || [] );
+            const data = await apiFetch( { 
+                path: '/wp-force-repair/v1/core/scan', 
+                method: 'POST',
+                data: { path: path } 
+            } );
+            setSuspectedFiles( data.files || [] );
+            setCurrentPath( data.current_path || '' );
+            setSelectedFiles( [] ); // Reset selection on nav
         } catch ( e ) {
             console.error( e );
         }
         setScanning( false );
+    };
+
+    const navigateUp = () => {
+        if ( ! currentPath ) return;
+        const parts = currentPath.split('/');
+        parts.pop(); // Remove last segment
+        scanFiles( parts.join('/') );
+    };
+
+    const openDirectory = ( dirName ) => {
+        const newPath = currentPath ? `${currentPath}/${dirName}` : dirName;
+        scanFiles( newPath );
     };
 
     const fetchQuarantined = async () => {
@@ -60,7 +79,7 @@ const CoreManager = () => {
 
     const toggleSelectAll = ( e ) => {
         if ( e.target.checked ) {
-            setSelectedFiles( suspectedFiles.map( f => f.name ) );
+            setSelectedFiles( suspectedFiles.map( f => f.path ) );
         } else {
             setSelectedFiles( [] );
         }
@@ -141,7 +160,7 @@ const CoreManager = () => {
         if( file.type === 'directory' ) return;
         MySwal.fire({ title: 'Loading...', didOpen: () => MySwal.showLoading() });
         try {
-            const res = await apiFetch({ path: `/wp-force-repair/v1/core/tools/view-file?file=${file.name}` });
+            const res = await apiFetch({ path: `/wp-force-repair/v1/core/tools/view-file?file=${file.path}` });
             MySwal.fire({
                 title: file.name,
                 html: `<pre style="text-align:left; max-height:400px; overflow:auto; background:#f0f0f1; padding:10px; border-radius:4px; font-size: 12px;">${String(res.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`,
@@ -179,6 +198,32 @@ const CoreManager = () => {
             }
         } catch ( e ) {
              MySwal.fire( 'Error', e.message, 'error' );
+        }
+    };
+
+    const deleteFolder = async ( folder ) => {
+        const result = await MySwal.fire({
+            title: 'Delete Folder?',
+            text: "This will remove the empty quarantine folder.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!'
+        });
+
+        if ( ! result.isConfirmed ) return;
+
+        try {
+            await apiFetch({
+                path: '/wp-force-repair/v1/core/quarantine/delete-folder',
+                method: 'POST',
+                data: { folder: folder }
+            });
+
+            MySwal.fire( 'Deleted!', 'Folder has been removed.', 'success' );
+            fetchQuarantined(); // Refresh the list
+        } catch ( error ) {
+            MySwal.fire( 'Error', error.message, 'error' );
         }
     };
 
@@ -294,30 +339,90 @@ const CoreManager = () => {
                 
                 { scanning ? <p>Scanning...</p> : (
                     <>
-                        <h3>Integrity Scan (Root Directory)</h3>
+                        <h3>
+                            File Browser: <span style={{ fontFamily: 'monospace', background: '#f0f0f1', padding: '2px 5px' }}>/{ currentPath }</span>
+                        </h3>
+                        { currentPath && (
+                            <button className="button button-small" onClick={ navigateUp } style={{ marginBottom: '10px' }}>
+                                ⬆ Go Up Directory
+                            </button>
+                        )}
+                        
                         { suspectedFiles.length === 0 ? (
-                             <p style={{ color: 'green' }}>✔ No unknown files found in root directory.</p>
+                             <p style={{ color: 'orange' }}>Empty directory.</p>
                         ) : (
                             <div>
-                                <p>Found <strong>{suspectedFiles.length}</strong> unknown files/folders in root.</p>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                    <p style={{ margin: 0 }}>Found <strong>{suspectedFiles.length}</strong> items.</p>
+                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                        <button className="button button-secondary" disabled={ selectedFiles.length === 0 } onClick={ () => handleQuarantine() }>
+                                            Quarantine Selected ({selectedFiles.length})
+                                        </button>
+                                    </div>
+                                </div>
+                                
                                 <table className="widefat striped">
                                     <thead>
                                         <tr>
+                                            <td className="manage-column column-cb check-column">
+                                                <input type="checkbox" onChange={ toggleSelectAll } />
+                                            </td>
                                             <th>Name</th>
                                             <th>Type</th>
                                             <th>Size</th>
+                                            <th>Perms</th>
+                                            <th>Modified</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        { suspectedFiles.map( (file, i) => (
+                                        { suspectedFiles.map( (file, i) => {
+                                            // Check if file is protected
+                                            let isProtected = false;
+                                            
+                                            // Root Level Protection
+                                            if ( currentPath === '' && ['wp-admin', 'wp-includes', 'wp-content', 'wp-config.php'].includes(file.name) ) {
+                                                isProtected = true;
+                                            }
+                                            
+                                            // wp-content Level Protection
+                                            // currentPath might be 'wp-content' or 'wp-content/' (depending on impl)
+                                            // Check if we are directly inside wp-content
+                                            if ( (currentPath === 'wp-content' || currentPath === '/wp-content') && 
+                                                 ['themes', 'plugins', 'mu-plugins', 'uploads', 'upgrade', 'wfr-quarantine', 'wfr-backups', 'index.php'].includes(file.name) ) {
+                                                isProtected = true;
+                                            }
+
+                                            return (
                                             <tr key={i}>
-                                                <td>{file.name}</td>
+                                                <th scope="row" className="check-column">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={ selectedFiles.includes( file.path ) } 
+                                                        onChange={ () => toggleFile( file.path ) }
+                                                        disabled={ isProtected }
+                                                    />
+                                                </th>
+                                                <td>
+                                                    { file.type === 'directory' ? (
+                                                        <a href="#" onClick={ (e) => { e.preventDefault(); openDirectory( file.name ); } } style={{ display: 'flex', alignItems: 'center' }}>
+                                                            <span className="dashicons dashicons-category" style={{ marginRight: '4px', color: '#72aee6' }}></span>
+                                                            {file.name}
+                                                        </a>
+                                                    ) : (
+                                                        <span style={{ display: 'flex', alignItems: 'center' }}>
+                                                            <span className="dashicons dashicons-media-text" style={{ marginRight: '4px', color: '#8c8f94' }}></span>
+                                                            {file.name}
+                                                        </span>
+                                                    )}
+                                                </td>
                                                 <td>{file.type}</td>
                                                 <td>{file.size}</td>
+                                                <td>{file.perms}</td>
+                                                <td>{file.mtime}</td>
                                                 <td>
                                                     <div style={{ display: 'flex', gap: '5px' }}>
-                                                        { file.type !== 'directory' && (
+                                                        { file.type !== 'directory' && !isProtected && (
                                                             <button 
                                                                 className="button button-small"
                                                                 title="View Content"
@@ -326,17 +431,21 @@ const CoreManager = () => {
                                                                 View Content
                                                             </button>
                                                         )}
-                                                        <button 
-                                                            className="button button-small" 
-                                                            onClick={ () => handleQuarantine([file.name]) }
-                                                            title="Quarantine"
-                                                        >
-                                                            Quarantine
-                                                        </button>
+                                                        { !isProtected ? (
+                                                            <button 
+                                                                className="button button-small" 
+                                                                onClick={ () => handleQuarantine([file.path]) }
+                                                                title="Quarantine"
+                                                            >
+                                                                Quarantine
+                                                            </button>
+                                                        ) : (
+                                                            <span className="dashicons dashicons-lock" style={{ color: '#ccc', verticalAlign: 'middle' }} title="Protected System Item"></span>
+                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>
-                                        ) ) }
+                                        ) } ) }
                                     </tbody>
                                 </table>
                             </div>
@@ -353,14 +462,37 @@ const CoreManager = () => {
                     
                     { quarantinedData.map( ( q, i ) => (
                         <div key={ i } style={{ marginBottom: '15px' }}>
-                            <h4 style={{ margin: '0 0 5px 0', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
-                                📁 Backup: { q.timestamp }
+                            <h4 style={{ 
+                                margin: '0 0 5px 0', 
+                                borderBottom: '1px solid #eee', 
+                                paddingBottom: '5px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
+                            }}>
+                                <span style={{ display: 'flex', alignItems: 'center' }}>
+                                    <span className="dashicons dashicons-category" style={{ marginRight: '4px' }}></span>
+                                    Backup: { q.timestamp }
+                                </span>
+                                
+                                <button 
+                                    className="button button-small button-link-delete"
+                                    onClick={ () => deleteFolder( q.timestamp ) }
+                                    style={{ marginLeft: 'auto', fontWeight: 'normal' }}
+                                >
+                                    Delete Folder
+                                </button>
                             </h4>
                             <table className="wp-list-table widefat fixed striped" style={{ marginTop: '5px' }}>
                                 <tbody>
                                     { q.files.map( ( file, j ) => (
                                         <tr key={ j }>
-                                            <td>{ file.name }</td>
+                                            <td>
+                                                <span style={{ display: 'flex', alignItems: 'center' }}>
+                                                    <span className="dashicons dashicons-media-text" style={{ marginRight: '4px', color: '#8c8f94' }}></span>
+                                                    {file.name}
+                                                </span>
+                                            </td>
                                             <td>{ file.size }</td>
                                             <td style={{ textAlign: 'right' }}>
                                                 <button className="button button-small" onClick={ () => handleRestore( file.path ) } style={{ marginRight: '5px' }}>Restore</button>

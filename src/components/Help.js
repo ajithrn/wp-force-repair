@@ -17,11 +17,15 @@ const Help = () => {
         },
         {
             q: 'Why are there "Unknown Files" in Core?',
-            a: 'The plugin scans your <code>wp-admin</code> and <code>wp-includes</code> folders against the official checksums. Any file NOT in the official release is flagged. These are often malware or leftover files from old updates.'
+            a: 'The plugin scans your root directory and subfolders (like <code>wp-content</code>) against known WordPress patterns. Any file that shouldn\'t be there is flagged. If you see a file you don\'t recognize, check its content first.'
+        },
+        {
+            q: 'What does the Lock Icon 🔒 mean?',
+            a: 'These are <strong>Protected System Items</strong> (e.g., <code>wp-config.php</code>, <code>wp-content</code>). We prevent you from quarantining or deleting these to avoid breaking your site.'
         },
         {
             q: 'Where are "Quarantined" files stored?',
-            a: 'Files flagged as suspicious are moved to: <br/><code>/wp-content/uploads/wfr-quarantine/</code>.<br/>They are not deleted immediately, so you can restore them if needed.'
+            a: 'Files flagged as suspicious are moved to: <br/><code>/wp-content/uploads/wfr-quarantine/</code>.<br/>Empty folders are automatically cleaned up when you delete or restore the last file.'
         },
         {
             q: 'Where are my Backups stored?',

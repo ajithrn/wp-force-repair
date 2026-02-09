@@ -9,14 +9,28 @@ class BackupController extends \WP_REST_Controller {
 
     public function __construct() {
         $upload_dir = wp_upload_dir();
+        // Use standard uploads/wfr-backups for universal compatibility
         $this->backup_dir = $upload_dir['basedir'] . '/wfr-backups/';
         $this->upload_url = $upload_dir['baseurl'] . '/wfr-backups/';
         
         if ( ! file_exists( $this->backup_dir ) ) {
             wp_mkdir_p( $this->backup_dir );
-            // Secure directory
+            @chmod( $this->backup_dir, 0700 ); // Strict: Owner only
+        }
+
+        // Always ensure security files exist (checking every time is cheap vs security risk)
+        $htaccess_content = "Order Deny,Allow\nDeny from all\nOptions -Indexes";
+        if ( ! file_exists( $this->backup_dir . '.htaccess' ) ) {
+            file_put_contents( $this->backup_dir . '.htaccess', $htaccess_content );
+        }
+        
+        $web_config_content = '<configuration><system.webServer><authorization><deny users="*" /></authorization></system.webServer></configuration>';
+        if ( ! file_exists( $this->backup_dir . 'web.config' ) ) {
+            file_put_contents( $this->backup_dir . 'web.config', $web_config_content );
+        }
+
+        if ( ! file_exists( $this->backup_dir . 'index.php' ) ) {
             file_put_contents( $this->backup_dir . 'index.php', '<?php // Silence is golden' );
-            file_put_contents( $this->backup_dir . '.htaccess', 'Options -Indexes' );
         }
 
         add_action( 'rest_api_init', [ $this, 'register_routes' ] );

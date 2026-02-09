@@ -18,17 +18,18 @@ Use this if you suspect core file corruption or hacking.
 1. Go to the **Core Manager** tab.
 2. Click **Force Re-install Core**.
 3. **Quarantine Checkbox**:
-    * **Checked (Recommended)**: Any file in your root folder that isn't part of standard WordPress (e.g., `unknown-file.php`) will be moved to the Quarantine folder.
+    * **Checked (Recommended)**: Any file in your root directory that isn't part of standard WordPress will be moved to the Quarantine folder.
     * **Unchecked**: Only `wp-admin`, `wp-includes`, and root PHP files are replaced. Unknown files are left alone.
-4. The process ensures `wp-content` and `wp-config.php` remain untouched.
+4. **Safety First**: The process automatically protects your `wp-content` folder and `wp-config.php` file, so your site data remains safe.
 
-### 3. File Integrity & Quarantine
+### 3. Deep Integrity Scan & Quarantine
 
-The **Integrity Scan** automatically checks for suspicious files in your root directory.
+The **Integrity Scan** checks your entire WordPress installation, including subfolders like `wp-content` and `plugins`.
 
-* **View Content**: Click the "View Content" button to inspect any unknown file safely.
+* **Explore**: Click on any folder to scan inside it.
+* **Smart Protection**: Essential system files (like `wp-config.php`) show a **Lock Icon 🔒** and cannot be quarantined or deleted accidentally.
 * **Quarantine**: Move suspicious files to safe isolation (`wp-content/uploads/wfr-quarantine/`).
-* **Restore**: If you mistakenly quarantined a valid file, you can restore it from the Quarantine section.
+* **Auto-Cleanup**: When you restore or permanently delete the last file in a quarantine folder, the empty folder is automatically removed to keep things tidy.
 
 ### 4. System Tools
 
@@ -47,7 +48,7 @@ Before making major repairs, it is always safe to take a backup.
 * **Download Database**: Exports your database as a SQL file (`backup-{site-name}-db-{date}.sql` or `.zip`).
 * **Auto-Cleanup**: After downloading, the plugin will ask if you want to delete the backup file from the server. We recommend clicking **Delete** to save space and keep your server clean.
 
-### 5. Database Health
+### 6. Database Health
 
 Optimize your database by cleaning up overhead and removing unused tables.
 
@@ -58,7 +59,7 @@ Optimize your database by cleaning up overhead and removing unused tables.
 * **Optimize**: Click "Optimize" to defragment tables and reclaim space.
 * **Sorting**: Click column headers to sort by Size, Rows, or Overhead.
 
-### 6. Managing Plugins & Themes
+### 7. Managing Plugins & Themes
 
 You can manage your installed extensions directly:
 

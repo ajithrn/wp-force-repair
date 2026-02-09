@@ -7,10 +7,10 @@
 - **Force Install/Update**: Re-install existing plugins/themes or install new ones, forcibly overwriting existing files to fix corruption.
 - **Core Manager**:
   - **Force Re-install Core**: Safely replaces `wp-admin` and `wp-includes` while keeping `wp-content` and `wp-config.php` safe.
-  - **Optional Quarantine**: Automatically identifies and moves unknown root files to a safe quarantine folder (optional checkbox).
-  - **Integrity Scan**: Instantly detected non-standard files in your root directory.
+  - **Deep Integrity Scan**: Scans root directory AND subfolders (like `wp-content`, `plugins`) for suspicious files.
+  - **Smart Protection**: Prevents accidental quarantine of essential WP folders (`wp-content`, `uploads`, etc.).
+  - **Quarantine System**: Isolate suspicious files to `wp-content/uploads/wfr-quarantine/`, with auto-cleanup of empty folders.
   - **File Viewer**: Inspect suspicious files directly within the dashboard before deleting or quarantining.
-  - **Quarantine System**: Isolate suspicious files, restore them if needed, or permanently delete them.
 - **System Tools**:
   - **Flush Permalinks**: Fixes 404 errors by resetting rewrite rules.
   - **Regenerate .htaccess**: Recreates your `.htaccess` file with a backup.

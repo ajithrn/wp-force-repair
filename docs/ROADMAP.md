@@ -26,20 +26,24 @@
 
   - [x] **Reset File Permissions**: Fix folders (755) and files (644).
 
-## Phase 2.5: Backup Manager (Planned)
+## Phase 2.5: Backup Manager (Completed)
 
-- [ ] **Full Site Backup**:
+- [x] **Full Site Backup**:
   - Download entire root directory as ZIP.
   - Smart exclusions (node_modules, .git, existing backups).
-- [ ] **Database Backup**:
+- [x] **Database Backup**:
   - Export full database (SQL dump).
   - Support for `mysqldump` (fast) with PHP fallback (compatible).
-  - Gzip compression.
+  - **Auto-Cleanup**: Prompts to delete backups to save space.
+
+## Phase 3: Database & Core Health (In Progress)
 
 - [x] **Database Health Check**:
   - [x] Structural integrity check of Core Tables.
   - [x] **Plugin Detection**: Identify table owners and status (Active/Inactive).
   - [x] **Optimization**: Optimize tables and reduce overhead.
+  - [x] **Table Inspector**: View size, rows, and overhead.
+- [ ] **Cleanup & Optimization**:
 - [ ] **Cleanup & Optimization**:
   - Remove expired transients.
   - Clean orphaned Post Meta and Term Relationships.
