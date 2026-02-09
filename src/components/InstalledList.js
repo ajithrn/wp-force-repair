@@ -107,37 +107,79 @@ const InstalledList = ( { type, onReinstall } ) => {
         }
     };
 
-    const handleBulkReinstall = async () => {
+    const handleBulkAction = async ( action ) => {
         if ( selected.length === 0 ) return;
 
+        let actionLabel = action.charAt(0).toUpperCase() + action.slice(1);
+        let confirmText = `Are you sure you want to ${action} ${selected.length} items?`;
+        let confirmBtnText = `Yes, ${actionLabel} All`;
+        let icon = 'question';
+
+        if ( action === 'delete' ) {
+            confirmText += ' This cannot be undone.';
+            icon = 'warning';
+        }
+
         const result = await showConfirmDialog(
-            'Bulk Reinstall?',
-            `Are you sure you want to reinstall ${selected.length} items? This will process them sequentially.`,
-            'Yes, Reinstall All'
+            `Bulk ${actionLabel}?`,
+            confirmText,
+            confirmBtnText,
+            icon
         );
         if ( ! result.isConfirmed ) return;
 
-
-        // Process sequentially to be safe
-        let index = 0;
-        for ( const id of selected ) {
-            index++;
-            // Find item to get slug
-            let slug = id;
-            if ( type === 'plugin' ) {
-                 const item = items.find( p => p.file === id );
-                 if ( item ) slug = item.slug;
-            } else {
-                 // for themes, id is slug
+        // Reinstall is special (client-side sequential)
+        if ( action === 'reinstall' ) {
+            // Process sequentially to be safe
+            let index = 0;
+            for ( const id of selected ) {
+                index++;
+                // Find item to get slug
+                let slug = id;
+                if ( type === 'plugin' ) {
+                     const item = items.find( p => p.file === id );
+                     if ( item ) slug = item.slug;
+                }
+                
+                // Trigger parent handler
+                await onReinstall( slug, type, null, `${index}/${selected.length}` );
             }
             
-            // Trigger parent handler
-            await onReinstall( slug, type, null, `${index}/${selected.length}` );
+            // Clear selection after done
+            setSelected([]);
+            fetchInstalled();
+            return;
         }
-        
-        // Clear selection after done
-        setSelected([]);
-        fetchInstalled();
+
+        // Standard actions via API
+        setLoading( true );
+        try {
+            const res = await apiFetch( {
+                path: '/wp-force-repair/v1/installed/bulk-action',
+                method: 'POST',
+                data: { 
+                    type, 
+                    action, 
+                    slugs: selected 
+                }
+            } );
+            
+            if ( res.success ) {
+                let msg = `Processed ${res.processed} items. Success: ${res.success_count}.`;
+                if ( res.errors.length > 0 ) {
+                    msg += ` Errors: ${res.errors.length}`;
+                    showErrorAlert( 'Partial Success', msg + '\n' + res.errors.join('\n') );
+                } else {
+                    showSuccessToast( msg );
+                }
+            }
+            
+            setSelected([]);
+            fetchInstalled();
+        } catch ( err ) {
+            showErrorAlert( 'Bulk Action Failed', err.message );
+            setLoading( false );
+        }
     };
 
     const renderItem = ( item ) => {
@@ -248,9 +290,12 @@ const InstalledList = ( { type, onReinstall } ) => {
                     </p>
                 </div>
                 { selected.length > 0 && (
-                    <button className="button button-secondary" onClick={ handleBulkReinstall }>
-                        Force Update Selected ({selected.length})
-                    </button>
+                    <div style={{ display: 'flex', gap: '5px' }}>
+                        <button className="button" onClick={ () => handleBulkAction('activate') }>Activate</button>
+                        <button className="button" onClick={ () => handleBulkAction('deactivate') }>Deactivate</button>
+                        <button className="button button-secondary" onClick={ () => handleBulkAction('reinstall') }>Reinstall</button>
+                        <button className="button button-link-delete" style={{ color: '#b32d2e', borderColor: '#b32d2e' }} onClick={ () => handleBulkAction('delete') }>Delete</button>
+                    </div>
                 )}
             </div>
             

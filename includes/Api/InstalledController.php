@@ -27,6 +27,14 @@ class InstalledController {
 				return current_user_can( 'manage_options' );
 			},
 		] );
+
+        register_rest_route( 'wp-force-repair/v1', '/installed/bulk-action', [
+			'methods'             => 'POST',
+			'callback'            => [ $this, 'handle_bulk_action' ],
+			'permission_callback' => function () {
+				return current_user_can( 'manage_options' );
+			},
+		] );
 	}
 
     public function handle_toggle_status( $request ) {
@@ -71,6 +79,94 @@ class InstalledController {
         }
 
         return new \WP_Error( 'invalid_type', 'Invalid type specified.', [ 'status' => 400 ] );
+    }
+
+    public function handle_bulk_action( $request ) {
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        require_once ABSPATH . 'wp-admin/includes/theme.php';
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+
+        $type = $request->get_param( 'type' );
+        $action = $request->get_param( 'action' ); // activate, deactivate, delete
+        $slugs = $request->get_param( 'slugs' ); // Array of slugs/files
+
+        if ( ! $type || ! $action || empty( $slugs ) || ! is_array( $slugs ) ) {
+            return new \WP_Error( 'invalid_params', 'Type, action, and slugs array are required.', [ 'status' => 400 ] );
+        }
+
+        $success_count = 0;
+        $errors = [];
+
+        foreach ( $slugs as $slug ) {
+            // Plugin slug is the file path (e.g., folder/file.php)
+            // Theme slug is the directory name
+            
+            if ( $type === 'plugin' ) {
+                if ( $action === 'activate' ) {
+                    $result = activate_plugin( $slug );
+                    if ( is_wp_error( $result ) ) {
+                        $errors[] = "Failed to activate $slug: " . $result->get_error_message();
+                    } else {
+                        $success_count++;
+                    }
+                } elseif ( $action === 'deactivate' ) {
+                    deactivate_plugins( $slug );
+                    // deactivate_plugins doesn't return value, assumes success
+                    if ( ! is_plugin_active( $slug ) ) {
+                        $success_count++;
+                    } else {
+                         $errors[] = "Failed to deactivate $slug";
+                    }
+                } elseif ( $action === 'delete' ) {
+                    // Safety: Deactivate first
+                    if ( is_plugin_active( $slug ) ) {
+                        deactivate_plugins( $slug );
+                    }
+                    $result = delete_plugins( [ $slug ] );
+                    if ( is_wp_error( $result ) ) {
+                         $errors[] = "Failed to delete $slug: " . $result->get_error_message();
+                    } elseif ( $result === false ) {
+                         $errors[] = "Failed to delete $slug (filesystem error)";
+                    } else {
+                        $success_count++;
+                    }
+                }
+            } elseif ( $type === 'theme' ) {
+                if ( $action === 'activate' ) {
+                     switch_theme( $slug );
+                     $success_count++;
+                } elseif ( $action === 'deactivate' ) {
+                     $errors[] = "Themes cannot be deactivated, only switched.";
+                } elseif ( $action === 'delete' ) {
+                    $theme = wp_get_theme( $slug );
+                    if ( $theme->exists() ) {
+                         // Check active
+                         if ( $theme->get_stylesheet() === get_stylesheet() || $theme->get_stylesheet() === get_template() ) {
+                             $errors[] = "Cannot delete active theme $slug";
+                             continue;
+                         }
+                         
+                         $result = delete_theme( $slug );
+                         if ( is_wp_error( $result ) ) {
+                            $errors[] = "Failed to delete $slug: " . $result->get_error_message();
+                        } elseif ( $result === false ) {
+                            $errors[] = "Failed to delete $slug (filesystem error)";
+                        } else {
+                            $success_count++;
+                        }
+                    } else {
+                        $errors[] = "Theme $slug not found";
+                    }
+                }
+            }
+        }
+
+        return new \WP_REST_Response( [
+            'success' => true,
+            'processed' => count( $slugs ),
+            'success_count' => $success_count,
+            'errors' => $errors
+        ], 200 );
     }
 
 	public function handle_get_installed( $request ) {
