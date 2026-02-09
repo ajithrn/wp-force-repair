@@ -1,6 +1,8 @@
 const { useState, useEffect } = wp.element;
 const apiFetch = wp.apiFetch;
 
+import { showSuccessToast, showErrorAlert, showConfirmDialog } from '../utils/notifications';
+
 const InstalledList = ( { type, onReinstall } ) => {
     // items will hold the specific list we are interested in
     const [ items, setItems ] = useState( [] );
@@ -33,11 +35,14 @@ const InstalledList = ( { type, onReinstall } ) => {
         }
         setLoading( false );
     };
-
     const handleDelete = async ( target ) => {
-        if ( ! confirm( 'Are you sure you want to force delete this item? This cannot be undone.' ) ) {
-            return;
-        }
+        const result = await showConfirmDialog(
+            'Force Delete?',
+            'Are you sure you want to force delete this item? This cannot be undone.',
+            'Yes, Delete It',
+            'warning'
+        );
+        if ( ! result.isConfirmed ) return;
 
         try {
             await apiFetch( {
@@ -46,9 +51,10 @@ const InstalledList = ( { type, onReinstall } ) => {
                 data: { type, target }
             } );
             // Refresh list
+            showSuccessToast( `${type} deleted successfully.` );
             fetchInstalled();
         } catch ( err ) {
-            alert( 'Error deleting: ' + err.message );
+            showErrorAlert( 'Error deleting', err.message );
         }
     };
 
@@ -57,8 +63,13 @@ const InstalledList = ( { type, onReinstall } ) => {
         const newAction = item.status === 'active' ? 'deactivate' : 'activate';
         
         // Confirmation for deactivation
-        if ( newAction === 'deactivate' && ! confirm( `Are you sure you want to deactivate ${item.name}?` ) ) {
-            return;
+        if ( newAction === 'deactivate' ) {
+             const result = await showConfirmDialog(
+                'Deactivate?',
+                `Are you sure you want to deactivate ${item.name}?`,
+                'Yes, Deactivate'
+             );
+             if ( ! result.isConfirmed ) return;
         }
 
         setLoading( true );
@@ -71,7 +82,7 @@ const InstalledList = ( { type, onReinstall } ) => {
             // Refresh list to reflect changes
             fetchInstalled();
         } catch ( err ) {
-            alert( 'Error changing status: ' + err.message );
+            showErrorAlert( 'Error changing status', err.message );
             setLoading( false );
         }
     };
@@ -99,9 +110,13 @@ const InstalledList = ( { type, onReinstall } ) => {
     const handleBulkReinstall = async () => {
         if ( selected.length === 0 ) return;
 
-        if ( ! confirm( `Are you sure you want to reinstall ${selected.length} items? This will process them sequentially.` ) ) {
-            return;
-        }
+        const result = await showConfirmDialog(
+            'Bulk Reinstall?',
+            `Are you sure you want to reinstall ${selected.length} items? This will process them sequentially.`,
+            'Yes, Reinstall All'
+        );
+        if ( ! result.isConfirmed ) return;
+
 
         // Process sequentially to be safe
         let index = 0;
@@ -124,9 +139,6 @@ const InstalledList = ( { type, onReinstall } ) => {
         setSelected([]);
         fetchInstalled();
     };
-
-    if ( loading ) return <div className="notice notice-info inline is-dismissible"><p>Loading {type}s...</p></div>;
-    if ( error ) return <div className="notice notice-error inline is-dismissible"><p>Error: { error }</p></div>;
 
     const renderItem = ( item ) => {
         const id = type === 'plugin' ? item.file : item.slug;
@@ -223,6 +235,9 @@ const InstalledList = ( { type, onReinstall } ) => {
         );
     };
 
+    if ( loading ) return <div className="notice notice-info inline" style={{margin: '10px 0'}}><p>Loading {type}s...</p></div>;
+    if ( error ) return <div className="notice notice-error inline" style={{margin: '10px 0'}}><p>Error: { error }</p></div>;
+
     return (
         <div className="wfr-view-container">
             <div className="wfr-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', marginBottom: '20px' }}>
@@ -246,7 +261,7 @@ const InstalledList = ( { type, onReinstall } ) => {
             </div>
 
             <div className="wfr-list-container">
-                { items.length === 0 && !loading && <p>No {type}s found.</p> }
+                { items.length === 0 && <p>No {type}s found.</p> }
                 { items.map( ( item ) => renderItem( item ) ) }
             </div>
         </div>

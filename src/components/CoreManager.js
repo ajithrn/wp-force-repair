@@ -5,6 +5,7 @@ import FileNode from './FileNode';
 import QuarantineItem from './QuarantineItem';
 import Swal from 'sweetalert2';
 import withReactContent from 'sweetalert2-react-content';
+import { showSuccessToast, showErrorAlert } from '../utils/notifications';
 
 const MySwal = withReactContent(Swal);
 
@@ -59,7 +60,7 @@ const CoreManager = () => {
             setFileCache( prev => ({ ...prev, [path]: data.files || [] }) );
         } catch ( e ) {
             console.error( e );
-            MySwal.fire( 'Error', 'Failed to scan directory: ' + path, 'error' );
+            showErrorAlert( 'Error', 'Failed to scan directory: ' + path );
         }
         
         if ( path === '' ) setScanning( false );
@@ -138,13 +139,13 @@ const CoreManager = () => {
             } );
              
             if ( res.success ) {
-                MySwal.fire( 'Quarantined!', `Successfully quarantined ${res.moved.length} files.`, 'success' );
+                showSuccessToast( `Successfully quarantined ${res.moved.length} files.` );
                 setSelectedFiles([]);
                 refreshCurrentView();
                 fetchQuarantined(); 
             }
         } catch ( e ) {
-             MySwal.fire( 'Error', e.message, 'error' );
+             showErrorAlert( 'Error', e.message );
         }
     };
 
@@ -167,12 +168,12 @@ const CoreManager = () => {
             } );
             
             if ( res.success ) {
-                MySwal.fire( 'Restored!', res.message, 'success' );
+                showSuccessToast( res.message );
                 refreshCurrentView();
                 fetchQuarantined();
             }
         } catch ( e ) {
-            MySwal.fire( 'Error', e.message, 'error' );
+            showErrorAlert( 'Error', e.message );
         }
     };
 
@@ -188,8 +189,8 @@ const CoreManager = () => {
                 showConfirmButton: true,
                 confirmButtonText: 'Close'
             });
-        } catch(e) {
-            MySwal.fire( 'Error', e.message, 'error' );
+        } catch ( e ) {
+            showErrorAlert( 'Error', e.message );
         }
     };
 
@@ -214,10 +215,10 @@ const CoreManager = () => {
 
             if ( res.success ) {
                 fetchQuarantined(); 
-                MySwal.fire( 'Deleted!', 'File has been deleted.', 'success' );
+                showSuccessToast( 'File has been deleted.' );
             }
         } catch ( e ) {
-             MySwal.fire( 'Error', e.message, 'error' );
+             showErrorAlert( 'Error', e.message );
         }
     };
 
@@ -240,10 +241,10 @@ const CoreManager = () => {
                 data: { folder: folder }
             });
 
-            MySwal.fire( 'Deleted!', 'Folder has been removed.', 'success' );
+            showSuccessToast( 'Folder has been removed.' );
             fetchQuarantined(); 
         } catch ( error ) {
-            MySwal.fire( 'Error', error.message, 'error' );
+            showErrorAlert( 'Error', error.message );
         }
     };
 
@@ -317,9 +318,11 @@ const CoreManager = () => {
         refreshCurrentView();
     };
 
-    if ( loading ) return <div className="notice notice-info inline is-dismissible" style={{ marginTop: '20px' }}><p>Loading Core Status...</p></div>;
-
     const rootFiles = fileCache[''] || [];
+
+    if ( loading ) {
+         return <div className="notice notice-info inline" style={{ marginTop: '20px' }}><p>Loading Core Status...</p></div>;
+    }
 
     return (
         <div className="wfr-view-container">
@@ -338,88 +341,88 @@ const CoreManager = () => {
             </div>
             
             <div className="wfr-core-status-card postbox" style={{ padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                    <h3 style={{ margin: '0 0 10px 0' }}>Current Version: { status?.version }</h3>
-                    <p style={{ margin: 0, color: status?.has_update ? '#d63638' : '#00a32a', fontWeight: 600 }}>
-                        { status?.has_update ? 'Update Available (' + status.latest_version + ')' : 'You are on the latest version.' }
-                    </p>
-                    <p style={{ margin: '5px 0 0 0', color: '#666', fontSize: '13px' }}>Locale: { status?.locale }</p>
-                </div>
-                <div>
-                     <button className="button button-primary button-hero" onClick={ handleReinstall }>
-                        Force Re-install Core
-                     </button>
-                     <p className="description" style={{ textAlign: 'center', marginTop: '5px' }}>SAFE: Preserves wp-content & config</p>
-                </div>
-            </div>
-
-            <div className="wfr-scan-section card" style={{ marginTop: '20px', padding: '15px', maxWidth: '100%' }}>
-                <h3 style={{ marginTop: 0 }}>File Integrity Scan (Root Directory)</h3>
-                <p>The system automatically hides standard WordPress files in the root for clarity.</p>
-                
-                { scanning && rootFiles.length === 0 ? <p>Scanning...</p> : (
-                    <>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                            <p style={{ margin: 0 }}>Found <strong>{rootFiles.length}</strong> non-standard items in root.</p>
-                            <div style={{ display: 'flex', gap: '10px' }}>
-                                <button className="button button-secondary" disabled={ selectedFiles.length === 0 } onClick={ () => handleQuarantine() }>
-                                    Quarantine Selected ({selectedFiles.length})
-                                </button>
-                            </div>
+                        <div>
+                            <h3 style={{ margin: '0 0 10px 0' }}>Current Version: { status?.version }</h3>
+                            <p style={{ margin: 0, color: status?.has_update ? '#d63638' : '#00a32a', fontWeight: 600 }}>
+                                { status?.has_update ? 'Update Available (' + status.latest_version + ')' : 'You are on the latest version.' }
+                            </p>
+                            <p style={{ margin: '5px 0 0 0', color: '#666', fontSize: '13px' }}>Locale: { status?.locale }</p>
                         </div>
+                        <div>
+                             <button className="button button-primary button-hero" onClick={ handleReinstall }>
+                                Force Re-install Core
+                             </button>
+                             <p className="description" style={{ textAlign: 'center', marginTop: '5px' }}>SAFE: Preserves wp-content & config</p>
+                        </div>
+                    </div>
+
+                    <div className="wfr-scan-section card" style={{ marginTop: '20px', padding: '15px', maxWidth: '100%' }}>
+                        <h3 style={{ marginTop: 0 }}>File Integrity Scan (Root Directory)</h3>
+                        <p>The system automatically hides standard WordPress files in the root for clarity.</p>
                         
-                        <table className="widefat striped">
-                            <thead>
-                                <tr>
-                                    <td className="manage-column column-cb check-column">
-                                        <input type="checkbox" onChange={ toggleSelectAll } />
-                                    </td>
-                                    <th>Name</th>
-                                    <th>Type</th>
-                                    <th>Size</th>
-                                    <th>Perms</th>
-                                    <th>Modified</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                { rootFiles.map( (file, i) => (
-                                    <FileNode 
-                                        key={ i }
-                                        file={ file }
-                                        depth={ 0 }
-                                        expandedPaths={ expandedPaths }
-                                        fileCache={ fileCache }
-                                        selectedFiles={ selectedFiles }
-                                        onToggle={ toggleFolder }
-                                        onToggleSelection={ toggleFile }
-                                        onView={ handleViewFile }
-                                        onQuarantine={ handleQuarantine }
-                                    />
-                                )) }
-                            </tbody>
-                        </table>
-                    </>
-                )}
-            </div>
-        
-            {/* Quarantine Viewer */}
-            { quarantinedData.length > 0 && (
-                <div className="wfr-quarantine-section card" style={{ marginTop: '20px', padding: '15px', maxWidth: '100%' }}>
-                    <h3 style={{ marginTop: 0 }}>Quarantined Files</h3>
-                    <p>Files moved here are safe and inactive. You can restore them if needed.</p>
-                    
-                    { quarantinedData.map( ( q, i ) => (
-                        <QuarantineItem 
-                            key={ i } 
-                            data={ q } 
-                            onDeleteFolder={ deleteFolder }
-                            onRestore={ handleRestore }
-                            onDeleteFile={ handleDeleteQuarantined }
-                        />
-                    ) ) }
-                </div>
-            ) }
+                        { scanning && rootFiles.length === 0 ? <p>Scanning...</p> : (
+                            <>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                                    <p style={{ margin: 0 }}>Found <strong>{rootFiles.length}</strong> non-standard items in root.</p>
+                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                        <button className="button button-secondary" disabled={ selectedFiles.length === 0 } onClick={ () => handleQuarantine() }>
+                                            Quarantine Selected ({selectedFiles.length})
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <table className="widefat striped">
+                                    <thead>
+                                        <tr>
+                                            <td className="manage-column column-cb check-column">
+                                                <input type="checkbox" onChange={ toggleSelectAll } />
+                                            </td>
+                                            <th>Name</th>
+                                            <th>Type</th>
+                                            <th>Size</th>
+                                            <th>Perms</th>
+                                            <th>Modified</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        { rootFiles.map( (file, i) => (
+                                            <FileNode 
+                                                key={ i }
+                                                file={ file }
+                                                depth={ 0 }
+                                                expandedPaths={ expandedPaths }
+                                                fileCache={ fileCache }
+                                                selectedFiles={ selectedFiles }
+                                                onToggle={ toggleFolder }
+                                                onToggleSelection={ toggleFile }
+                                                onView={ handleViewFile }
+                                                onQuarantine={ handleQuarantine }
+                                            />
+                                        )) }
+                                    </tbody>
+                                </table>
+                            </>
+                        )}
+                    </div>
+                
+                    {/* Quarantine Viewer */}
+                    { quarantinedData.length > 0 && (
+                        <div className="wfr-quarantine-section card" style={{ marginTop: '20px', padding: '15px', maxWidth: '100%' }}>
+                            <h3 style={{ marginTop: 0 }}>Quarantined Files</h3>
+                            <p>Files moved here are safe and inactive. You can restore them if needed.</p>
+                            
+                            { quarantinedData.map( ( q, i ) => (
+                                <QuarantineItem 
+                                    key={ i } 
+                                    data={ q } 
+                                    onDeleteFolder={ deleteFolder }
+                                    onRestore={ handleRestore }
+                                    onDeleteFile={ handleDeleteQuarantined }
+                                />
+                            ) ) }
+                        </div>
+                    ) }
         </div>
     );
 };
