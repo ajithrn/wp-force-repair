@@ -11,3 +11,6 @@ Thumbs.db
 
 # Logs
 npm-debug.log
+
+# Documentation/Plans
+docs/plans/

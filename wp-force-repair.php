@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'WFR_VERSION', '2.6.0' );
+define( 'WFR_VERSION', '2.6.1' );
 define( 'WFR_PATH', plugin_dir_path( __FILE__ ) );
 define( 'WFR_URL', plugin_dir_url( __FILE__ ) );
 

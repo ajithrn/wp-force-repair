@@ -226,8 +226,13 @@ class SystemToolsController extends \WP_REST_Controller {
         $errors = 0;
 
         foreach ( $iterator as $item ) {
-            // Skip .git and node_modules to be fast and safe
-            if ( strpos( $item->getPathname(), '.git' ) !== false || strpos( $item->getPathname(), 'node_modules' ) !== false ) {
+            // Skip .git, node_modules, and WFR protected folders (Quarantine/Backups)
+            if ( 
+                strpos( $item->getPathname(), '.git' ) !== false || 
+                strpos( $item->getPathname(), 'node_modules' ) !== false ||
+                strpos( $item->getPathname(), 'wfr-quarantine' ) !== false ||
+                strpos( $item->getPathname(), 'wfr-backups' ) !== false
+            ) {
                 continue;
             }
 
