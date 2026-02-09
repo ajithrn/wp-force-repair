@@ -212,56 +212,94 @@ class SystemToolsController extends \WP_REST_Controller {
     }
 
     public function reset_file_permissions() {
-        // Increase time limit
-        @set_time_limit( 300 );
+        // Attempt to increase limits
+        @set_time_limit( 0 );
+        @ini_set( 'memory_limit', '256M' );
 
         $root = ABSPATH;
-        $iterator = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator( $root, \RecursiveDirectoryIterator::SKIP_DOTS ),
-            \RecursiveIteratorIterator::SELF_FIRST
-        );
+        
+        try {
+            $iterator = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator( $root, \RecursiveDirectoryIterator::SKIP_DOTS ),
+                \RecursiveIteratorIterator::SELF_FIRST
+            );
+        } catch ( \Exception $e ) {
+            return new \WP_REST_Response( [
+                'success' => false,
+                'message' => 'Failed to initialize file scanning: ' . $e->getMessage()
+            ], 500 );
+        }
 
         $count_dirs = 0;
         $count_files = 0;
         $errors = 0;
+        $start_time = time();
+        $limit_hit = false;
 
-        foreach ( $iterator as $item ) {
-            // Skip .git, node_modules, and WFR protected folders (Quarantine/Backups)
-            if ( 
-                strpos( $item->getPathname(), '.git' ) !== false || 
-                strpos( $item->getPathname(), 'node_modules' ) !== false ||
-                strpos( $item->getPathname(), 'wfr-quarantine' ) !== false ||
-                strpos( $item->getPathname(), 'wfr-backups' ) !== false
-            ) {
-                continue;
-            }
-
-            try {
-                if ( $item->isDir() ) {
-                    if ( chmod( $item->getPathname(), 0755 ) ) {
-                        $count_dirs++;
-                    } else {
-                        $errors++;
-                    }
-                } else {
-                    if ( chmod( $item->getPathname(), 0644 ) ) {
-                        $count_files++;
-                    } else {
-                        $errors++;
-                    }
+        try {
+            foreach ( $iterator as $item ) {
+                // Safety: Stop if running too long (e.g., > 20 seconds) to prevent Critical Error (Timeout)
+                if ( time() - $start_time > 20 ) {
+                    $limit_hit = true;
+                    break;
                 }
-            } catch ( \Exception $e ) {
-                $errors++;
+
+                // Skip .git, node_modules, and WFR protected folders (Quarantine/Backups)
+                if ( 
+                    strpos( $item->getPathname(), '.git' ) !== false || 
+                    strpos( $item->getPathname(), 'node_modules' ) !== false ||
+                    strpos( $item->getPathname(), 'wfr-quarantine' ) !== false ||
+                    strpos( $item->getPathname(), 'wfr-backups' ) !== false
+                ) {
+                    continue;
+                }
+
+                try {
+                    $path = $item->getPathname();
+                    if ( $item->isDir() ) {
+                         // Only chmod if current perms are not correct (save I/O)
+                         if ( ( fileperms( $path ) & 0777 ) !== 0755 ) {
+                            if ( @chmod( $path, 0755 ) ) {
+                                $count_dirs++;
+                            } else {
+                                $errors++;
+                            }
+                         }
+                    } else {
+                        if ( ( fileperms( $path ) & 0777 ) !== 0644 ) {
+                            if ( @chmod( $path, 0644 ) ) {
+                                $count_files++;
+                            } else {
+                                $errors++;
+                            }
+                        }
+                    }
+                } catch ( \Exception $e ) {
+                    // Ignore individual file errors
+                    $errors++;
+                }
             }
+        } catch ( \Exception $e ) {
+            // Iterator/Directory access error
+            return new \WP_REST_Response( [
+                'success' => false,
+                'message' => 'Scanning error (likely permission denied on folder): ' . $e->getMessage()
+            ], 500 );
         }
 
         // Also fix root
         @chmod( $root, 0755 );
 
+        $msg = "Permissions Reset Complete. Fixed $count_dirs folders and $count_files files.";
+        if ( $limit_hit ) {
+            $msg = "Partial Fix: Time limit reached. Fixed $count_dirs folders and $count_files files. Please Run Again to continue.";
+        }
+
         return new \WP_REST_Response( [
             'success' => true,
-            'message' => "Permissions Reset Complete. Fixed $count_dirs folders and $count_files files.",
-            'errors' => $errors
+            'message' => $msg,
+            'errors' => $errors,
+            'partial' => $limit_hit
         ], 200 );
     }
 
