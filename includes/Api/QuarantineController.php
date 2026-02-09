@@ -255,13 +255,13 @@ class QuarantineController extends \WP_REST_Controller {
         $base_dir = $this->get_storage_path();
         $full_source = $base_dir . '/' . $path;
         
+        if ( ! file_exists( $full_source ) ) {
+            return new \WP_Error( 'file_not_found', 'File not found in quarantine.' );
+        }
+
         // Security check: ensure path is within quarantine
         if ( strpos( realpath( $full_source ), realpath( $base_dir ) ) !== 0 ) {
              return new \WP_Error( 'invalid_path', 'Invalid file path traversal detected.' );
-        }
-
-        if ( ! file_exists( $full_source ) ) {
-            return new \WP_Error( 'file_not_found', 'File not found in quarantine.' );
         }
 
         $filename = basename( $full_source );
@@ -327,13 +327,13 @@ class QuarantineController extends \WP_REST_Controller {
         $base_dir = $this->get_storage_path();
         $full_source = $base_dir . '/' . $path;
         
+        if ( ! file_exists( $full_source ) ) {
+            return new \WP_Error( 'file_not_found', 'File not found in quarantine.' );
+        }
+
         // Security check
         if ( strpos( realpath( $full_source ), realpath( $base_dir ) ) !== 0 ) {
              return new \WP_Error( 'invalid_path', 'Invalid file path traversal detected.' );
-        }
-
-        if ( ! file_exists( $full_source ) ) {
-            return new \WP_Error( 'file_not_found', 'File not found in quarantine.' );
         }
 
         if ( unlink( $full_source ) ) {
@@ -374,8 +374,8 @@ class QuarantineController extends \WP_REST_Controller {
         $count = 0;
         foreach ( $files as $f ) {
             if ( $f === '.' || $f === '..' ) continue;
-            if ( $f === '.DS_Store' ) {
-                unlink( $full_path . '/' . $f ); // Auto-clean system junk
+            // Ignore system files AND metadata files when checking if "empty"
+            if ( $f === '.DS_Store' || substr( $f, -5 ) === '.json' ) {
                 continue;
             }
             $count++;
@@ -383,6 +383,13 @@ class QuarantineController extends \WP_REST_Controller {
 
         if ( $count > 0 ) {
              return new \WP_Error( 'not_empty', 'Folder is not empty. Delete files first.' );
+        }
+        
+        // If we are here, it's "empty" of real files. Clean up junk before deleting.
+        $junk_files = scandir( $full_path );
+        foreach ( $junk_files as $f ) {
+            if ( $f === '.' || $f === '..' ) continue;
+            @unlink( $full_path . '/' . $f );
         }
 
         if ( rmdir( $full_path ) ) {
