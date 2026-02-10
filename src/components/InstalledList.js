@@ -133,8 +133,9 @@ const InstalledList = ( { type, onReinstall } ) => {
     const toggleSelectAll = ( e ) => {
         const isChecked = e.target.checked;
         if ( isChecked ) {
-            const allIds = items.map( item => type === 'plugin' ? item.file : item.slug );
-            setSelected( allIds );
+            // Only select visible (filtered) items
+            const visibleIds = filteredItems.map( item => type === 'plugin' ? item.file : item.slug );
+            setSelected( visibleIds );
         } else {
             setSelected( [] );
         }
@@ -169,8 +170,8 @@ const InstalledList = ( { type, onReinstall } ) => {
         );
         if ( ! result.isConfirmed ) return;
 
-        // Reinstall is special (client-side sequential)
-        if ( action === 'reinstall' ) {
+        // Reinstall and Update are special (client-side sequential for visual overlay)
+        if ( action === 'reinstall' || action === 'update' ) {
             // Process sequentially to be safe
             let index = 0;
             for ( const id of selected ) {
@@ -183,7 +184,9 @@ const InstalledList = ( { type, onReinstall } ) => {
                 }
                 
                 // Trigger parent handler
-                await onReinstall( slug, type, null, `${index}/${selected.length}` );
+                // If update, action is 'update', else 'install'
+                const method = action === 'update' ? 'update' : 'install';
+                await onReinstall( slug, type, null, `${index}/${selected.length}`, method );
             }
             
             // Clear selection after done
@@ -412,7 +415,7 @@ const InstalledList = ( { type, onReinstall } ) => {
 
             <div className="wfr-bulk-select-all" style={{ padding: '0 0 10px 0' }}>
                  <label style={{ fontWeight: 600 }}>
-                    <input type="checkbox" onChange={ toggleSelectAll } checked={ items.length > 0 && selected.length === items.length } /> Select All
+                    <input type="checkbox" onChange={ toggleSelectAll } checked={ filteredItems.length > 0 && selected.length === filteredItems.length } /> Select All
                  </label>
             </div>
 

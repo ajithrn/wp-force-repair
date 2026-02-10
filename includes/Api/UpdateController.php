@@ -345,9 +345,21 @@ class UpdateController {
                 'logs' => $skin->messages 
             ], 400 );
         } elseif ( ! empty( $skin->errors ) ) {
+             // Check if it's just "up_to_date" which isn't really a system error
+             if ( in_array( 'up_to_date', $skin->errors ) ) {
+                 return new \WP_REST_Response( [ 
+                    'success' => true, 
+                    'message' => 'Plugin is already up to date.',
+                    'logs' => $skin->messages
+                ], 200 );
+             }
+
+             // Convert errors array to string for clearer message
+             $error_msg = 'Update failed: ' . implode( ', ', $skin->errors );
+             
              return new \WP_REST_Response( [ 
                 'success' => false, 
-                'message' => 'Update errors occurred.',
+                'message' => $error_msg,
                 'logs' => array_merge( $skin->messages, $skin->errors )
             ], 500 );
         }
