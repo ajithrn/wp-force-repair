@@ -87,6 +87,30 @@ const InstalledList = ( { type, onReinstall } ) => {
         }
     };
 
+    const handleUpdate = async ( item ) => {
+         const id = type === 'plugin' ? item.file : item.slug;
+         setLoading(true);
+         try {
+             // Use new standard update endpoint
+             const res = await apiFetch({
+                 path: '/wp-force-repair/v1/update/standard',
+                 method: 'POST',
+                 data: { slug: id, type }
+             });
+             
+             if ( res.success ) {
+                 showSuccessToast( `Updated ${item.name} successfully.` );
+                 fetchInstalled();
+             } else {
+                 showErrorAlert( 'Update Failed', res.message );
+                 setLoading(false);
+             }
+         } catch (err) {
+             showErrorAlert( 'Update Error', err.message );
+             setLoading(false);
+         }
+    };
+
     // --- Bulk Action Handlers ---
 
     const toggleSelectAll = ( e ) => {
@@ -257,13 +281,40 @@ const InstalledList = ( { type, onReinstall } ) => {
                             { item.status === 'active' ? 'Deactivate' : 'Activate' }
                         </button>
 
-                        <button 
-                            className="button button-small" /* Smaller buttons */
-                            onClick={ () => onReinstall( item.slug, type, null ) }
-                            style={{ height: '24px', lineHeight: '22px', padding: '0 8px', borderColor: hasUpdate ? '#f56e28' : undefined, color: hasUpdate ? '#d63638' : undefined }}
-                        >
-                            { hasUpdate ? 'Update Now' : 'Reinstall' }
-                        </button>
+                        {/* Smart Update Button Logic */}
+                        { item.source === 'external' ? (
+                            <>
+                                { hasUpdate && (
+                                    <button 
+                                        className="button button-small"
+                                        onClick={ () => handleUpdate( item ) }
+                                        style={{ height: '24px', lineHeight: '22px', padding: '0 8px', borderColor: '#f56e28', color: '#d63638' }}
+                                    >
+                                        Update Now
+                                    </button>
+                                )}
+                                {/* No Reinstall for external, prevents overwriting */}
+                            </>
+                        ) : (
+                            <>
+                                { hasUpdate && (
+                                     <button 
+                                        className="button button-small"
+                                        onClick={ () => handleUpdate( item ) }
+                                        style={{ height: '24px', lineHeight: '22px', padding: '0 8px', borderColor: '#f56e28', color: '#d63638' }}
+                                    >
+                                        Update Now
+                                    </button>
+                                )}
+                                <button 
+                                    className="button button-small" 
+                                    onClick={ () => onReinstall( item.slug, type, null ) }
+                                    style={{ height: '24px', lineHeight: '22px', padding: '0 8px' }}
+                                >
+                                    Reinstall
+                                </button>
+                            </>
+                        )}
                         <button 
                             className="button button-small button-link-delete"
                             style={{ color: '#b32d2e', textDecoration: 'none', height: '24px', lineHeight: '22px' }}

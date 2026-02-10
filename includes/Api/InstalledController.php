@@ -192,15 +192,31 @@ class InstalledController {
                 $source = 'external'; // Default to external
 
                 // Check for updates or repo status
+                // Logic: A plugin is 'repo' if:
+                // 1. It has an update package from wordpress.org
+                // 2. Its PluginURI or AuthorURI is explicitly wordpress.org
+                // 3. It's in the 'no_update' list of the wp.org API response (though some paid plugins hook here, we need care)
+                
                 if ( is_object( $plugin_updates ) ) {
                     // Check if update is available
                     if ( isset( $plugin_updates->response ) && isset( $plugin_updates->response[ $file ] ) ) {
                         $update_available = true;
-                        $source = 'repo';
+                        $pkg = isset( $plugin_updates->response[ $file ]->package ) ? $plugin_updates->response[ $file ]->package : '';
+                        
+                        // Strict: Only trust w.org packages
+                        if ( strpos( $pkg, 'wordpress.org' ) !== false ) {
+                             $source = 'repo';
+                        } else {
+                             $source = 'external';
+                        }
                     }
-                    // Check if it's in the 'no_update' list (meaning it's tracked by repo but up to date)
+                    // Check if it's in the 'no_update' list meaning WP.org tracks it
                     elseif ( isset( $plugin_updates->no_update ) && isset( $plugin_updates->no_update[ $file ] ) ) {
-                         $source = 'repo';
+                         $item = $plugin_updates->no_update[ $file ];
+                         // Verify the INFO url points to wordpress.org
+                         if ( isset( $item->url ) && strpos( $item->url, 'wordpress.org' ) !== false ) {
+                             $source = 'repo';
+                         }
                     }
                 }
 
@@ -235,12 +251,17 @@ class InstalledController {
                 if ( is_object( $theme_updates ) ) {
                     if ( isset( $theme_updates->response ) && isset( $theme_updates->response[ $slug ] ) ) {
                         $update_available = true;
-                        $source = 'repo';
-                    } elseif ( isset( $theme_updates->checked ) && isset( $theme_updates->checked[ $slug ] ) ) {
-                        $theme_uri = $theme->get('ThemeURI');
-                        if ( strpos( $theme_uri, 'wordpress.org' ) !== false ) {
+                        $pkg = isset( $theme_updates->response[ $slug ]['package'] ) ? $theme_updates->response[ $slug ]['package'] : '';
+                         if ( strpos( $pkg, 'wordpress.org' ) !== false ) {
                              $source = 'repo';
-                        }
+                         }
+                    } elseif ( isset( $theme_updates->checked ) && isset( $theme_updates->checked[ $slug ] ) ) {
+                        // Refined check: Themes usually don't have a 'no_update' list with metadata like plugins.
+                        // We will trust ThemeURI for themes ONLY if strictly wordpress.org
+                        $theme_uri = $theme->get('ThemeURI');
+                         if ( strpos( $theme_uri, 'wordpress.org/themes/' ) !== false ) {
+                             $source = 'repo';
+                         }
                     }
                 }
 

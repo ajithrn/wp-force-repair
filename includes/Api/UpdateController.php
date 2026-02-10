@@ -46,6 +46,18 @@ class UpdateController {
                 return current_user_can( 'manage_options' );
             },
         ] );
+
+        register_rest_route( 'wp-force-repair/v1', '/update/standard', [
+			'methods'             => 'POST',
+			'callback'            => [ $this, 'handle_standard_update' ],
+			'permission_callback' => function () {
+				return current_user_can( 'manage_options' );
+			},
+            'args'                => [
+				'slug' => [ 'required' => true ],
+				'type' => [ 'required' => true ], // plugin/theme
+			]
+		] );
 	}
 
 	public function handle_install( \WP_REST_Request $request ) {
@@ -143,7 +155,71 @@ class UpdateController {
                 'logs'    => isset($skin) ? $skin->messages : [],
             ], 500 );
         }
-	}
+    }
+
+    public function handle_standard_update( \WP_REST_Request $request ) {
+        @set_time_limit( 0 );
+        
+        $slug = $request->get_param( 'slug' ); // File path for plugins
+        $type = $request->get_param( 'type' );
+
+        require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        require_once ABSPATH . 'wp-admin/includes/misc.php';
+        
+        if ( ! WP_Filesystem() ) {
+             return new \WP_REST_Response( [ 'success' => false, 'message' => 'Filesystem error' ], 500 );
+        }
+
+        $skin = new JsonSkin();
+        $result = null;
+
+        if ( $type === 'plugin' ) {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+            // Force refresh of update data
+            wp_update_plugins();
+            
+            $upgrader = new \Plugin_Upgrader( $skin );
+            $result = $upgrader->upgrade( $slug );
+        } else {
+            require_once ABSPATH . 'wp-admin/includes/theme.php';
+            wp_update_themes();
+            
+            $upgrader = new \Theme_Upgrader( $skin );
+            $result = $upgrader->upgrade( $slug );
+        }
+
+        if ( is_wp_error( $result ) ) {
+            return new \WP_REST_Response( [ 
+                'success' => false, 
+                'message' => $result->get_error_message(),
+                'logs' => $skin->messages 
+            ], 500 );
+        }
+
+        // Result can be string (success msg), true/false/null depending on upgrader path
+        if ( ! $result && empty( $skin->errors ) ) {
+             // Sometimes standard upgrader returns false if already up to date or no package found
+             // Check valid updates
+             return new \WP_REST_Response( [ 
+                'success' => false, 
+                'message' => 'Update failed or no update available via standard path.',
+                'logs' => $skin->messages 
+            ], 400 );
+        } elseif ( ! empty( $skin->errors ) ) {
+             return new \WP_REST_Response( [ 
+                'success' => false, 
+                'message' => 'Update errors occurred.',
+                'logs' => array_merge( $skin->messages, $skin->errors )
+            ], 500 );
+        }
+
+        return new \WP_REST_Response( [
+            'success' => true,
+            'message' => 'Update complete.',
+            'logs' => $skin->messages
+        ], 200 );
+    }
 
     public function check_self_update() {
         // Instantiate Updater manually (it requires file path and repo slug)
