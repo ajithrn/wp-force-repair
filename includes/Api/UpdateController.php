@@ -58,6 +58,14 @@ class UpdateController {
 				'type' => [ 'required' => true ], // plugin/theme
 			]
 		] );
+
+        register_rest_route( 'wp-force-repair/v1', '/install/upload', [
+            'methods'             => 'POST',
+            'callback'            => [ $this, 'handle_upload_install' ],
+            'permission_callback' => function () {
+                return current_user_can( 'upload_plugins' ) && current_user_can( 'install_plugins' );
+            },
+        ] );
 	}
 
 	public function handle_install( \WP_REST_Request $request ) {
@@ -100,6 +108,29 @@ class UpdateController {
 
             $skin = new JsonSkin();
             $result = null;
+
+            // NEW: Download manually first to validate Zip contents if it's an external URL (or even repo URL for safety)
+            // But repo URLs are trusted. External ones are not.
+            // Let's be consistent and validate all if slug is provided.
+            
+            $tmp_file = download_url( $download_link );
+            if ( is_wp_error( $tmp_file ) ) {
+                 throw new \Exception( 'Download failed: ' . $tmp_file->get_error_message() );
+            }
+
+            // Validate Zip Contents
+            if ( $slug ) {
+                require_once dirname( __DIR__ ) . '/Utils/ZipValidator.php';
+                $validation = \WPForceRepair\Utils\ZipValidator::validate( $tmp_file, $slug );
+                
+                if ( is_wp_error( $validation ) ) {
+                    @unlink( $tmp_file );
+                    return new \WP_REST_Response( [
+                        'success' => false,
+                        'message' => $validation->get_error_message(),
+                    ], 400 );
+                }
+            }
             
             if ( 'plugin' === $type ) {
                 $upgrader = new \Plugin_Upgrader( $skin );
@@ -112,11 +143,11 @@ class UpdateController {
                     return $options;
                 } );
                 
-                $result = $upgrader->install( $download_link );
+                // Install from local temp file
+                $result = $upgrader->install( $tmp_file );
                 
                 // Reactivate if needed
                 if ( $plugin_file && ! is_wp_error($result) && $result ) {
-                    // Re-check plugin file as it might have changed or just been created
                      $new_plugin_file = $this->get_plugin_file( $slug );
                      if ($new_plugin_file) activate_plugin( $new_plugin_file );
                 }
@@ -129,8 +160,10 @@ class UpdateController {
                     return $options;
                 } );
                 
-                $result = $upgrader->install( $download_link );
+                $result = $upgrader->install( $tmp_file );
             }
+
+            @unlink( $tmp_file ); // Cleanup
 
             if ( is_wp_error( $result ) ) {
                 throw new \Exception( $result->get_error_message() );
@@ -149,6 +182,111 @@ class UpdateController {
             ], 200 );
 
         } catch ( \Exception $e ) {
+            return new \WP_REST_Response( [
+                'success' => false,
+                'message' => $e->getMessage(),
+                'logs'    => isset($skin) ? $skin->messages : [],
+            ], 500 );
+        }
+    }
+
+    public function handle_upload_install( \WP_REST_Request $request ) {
+        @set_time_limit( 0 );
+        
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        require_once ABSPATH . 'wp-admin/includes/theme.php';
+        
+        // 1. Handle File Upload
+        $files = $request->get_file_params(); // standard WP REST way to get $_FILES
+        if ( empty( $files['package'] ) ) {
+             return new \WP_Error( 'no_file', 'No file uploaded.', [ 'status' => 400 ] );
+        }
+
+        $overrides = [ 'test_form' => false ];
+        $upload = wp_handle_upload( $files['package'], $overrides );
+
+        if ( isset( $upload['error'] ) ) {
+             return new \WP_Error( 'upload_error', $upload['error'], [ 'status' => 500 ] );
+        }
+
+        $file_path = $upload['file'];
+        $type = $request->get_param('type');
+        // Slug is optional for upload as the zip contains the folder, creates it. 
+        // But for "updating" an existing one, we might want to ensure it matches?
+        // Standard WP install just unzips. If folder exists, we force overwrite.
+        
+        if ( ! WP_Filesystem() ) {
+            return new \WP_REST_Response( [ 'success' => false, 'message' => 'Filesystem error' ], 500 );
+        }
+
+        // 2. Validate Zip Contents (Safety Check)
+        $target_slug = $request->get_param('slug');
+        if ( $target_slug ) {
+            require_once dirname( __DIR__ ) . '/Utils/ZipValidator.php';
+            $validation = \WPForceRepair\Utils\ZipValidator::validate( $file_path, $target_slug );
+
+            if ( is_wp_error( $validation ) ) {
+                @unlink( $file_path );
+                return new \WP_REST_Response( [
+                    'success' => false,
+                    'message' => $validation->get_error_message(),
+                ], 400 );
+            }
+        }
+
+        $skin = new JsonSkin();
+        $result = null;
+
+        try {
+            if ( 'plugin' === $type ) {
+                $upgrader = new \Plugin_Upgrader( $skin );
+                add_filter( 'upgrader_package_options', function($options) {
+                    $options['clear_destination'] = true;
+                    $options['abort_if_destination_exists'] = false; 
+                    return $options;
+                } );
+                // Install from local paths
+                $result = $upgrader->install( $file_path );
+                
+                // Try to activate if we know the slug? 
+                // Hard to know the main file from zip without scanning.
+                // We'll skip auto-activation for upload-reinstall unless we are sure.
+                // The frontend 'slug' param might be trustworthy if passed.
+            } else {
+                 $upgrader = new \Theme_Upgrader( $skin );
+                 add_filter( 'upgrader_package_options', function($options) {
+                    $options['clear_destination'] = true;
+                    $options['abort_if_destination_exists'] = false; 
+                    return $options;
+                } );
+                $result = $upgrader->install( $file_path );
+            }
+
+            // Cleanup uploaded zip
+            @unlink( $file_path );
+
+            if ( is_wp_error( $result ) ) {
+                throw new \Exception( $result->get_error_message() );
+            }
+
+            if ( ! $result && empty($skin->errors) ) {
+                 throw new \Exception( 'Unknown error during installation.' );
+            }
+            
+            if ( ! empty( $skin->errors ) ) {
+                 throw new \Exception( 'Errors occurred: ' . implode(', ', $skin->errors) );
+            }
+
+            return new \WP_REST_Response( [
+                'success' => true,
+                'message' => 'Installed successfully.',
+                'logs'    => $skin->messages
+            ], 200 );
+
+        } catch ( \Exception $e ) {
+            @unlink( $file_path ); // Ensure cleanup
             return new \WP_REST_Response( [
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -275,4 +413,5 @@ class UpdateController {
 		}
 		return null;
 	}
+
 }

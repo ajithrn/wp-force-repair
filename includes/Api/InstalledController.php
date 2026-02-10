@@ -97,6 +97,32 @@ class InstalledController {
         $success_count = 0;
         $errors = [];
 
+        // Initialize Upgrader for 'update' action
+        $upgrader = null;
+        $skin = null;
+        
+        if ( $action === 'update' ) {
+            require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+            require_once ABSPATH . 'wp-admin/includes/misc.php'; // For got_mod_rewrite etc
+            
+            // Re-use JsonSkin or similar if available, or just use silent null skin and capture result
+            // Since we need to capture logs for bulk defaults, we might need a custom skin or just return boolean success count
+            // For bulk, let's keep it simple: success/fail count. Detailed logs per item might be too much for the response unless requested.
+            // We'll use Automatic_Upgrader_Skin or similar silent one.
+            require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader-skin.php';
+            
+            // Using a simple skin that doesn't output headers
+            $skin = new \Automatic_Upgrader_Skin();
+            
+            if ( $type === 'plugin' ) {
+                wp_update_plugins(); // Refresh transients
+                $upgrader = new \Plugin_Upgrader( $skin );
+            } else {
+                wp_update_themes();
+                $upgrader = new \Theme_Upgrader( $skin );
+            }
+        }
+
         foreach ( $slugs as $slug ) {
             // Plugin slug is the file path (e.g., folder/file.php)
             // Theme slug is the directory name
@@ -130,6 +156,17 @@ class InstalledController {
                     } else {
                         $success_count++;
                     }
+                } elseif ( $action === 'update' ) {
+                    // Standard upgrade (works for both repo and properly hooked external)
+                    $result = $upgrader->upgrade( $slug );
+                    if ( is_wp_error( $result ) ) {
+                        $errors[] = "Failed to update $slug: " . $result->get_error_message();
+                    } elseif ( ! $result ) {
+                        // Sometimes returns false if no update available
+                         $errors[] = "No update available or failed for $slug";
+                    } else {
+                        $success_count++;
+                    }
                 }
             } elseif ( $type === 'theme' ) {
                 if ( $action === 'activate' ) {
@@ -156,6 +193,15 @@ class InstalledController {
                         }
                     } else {
                         $errors[] = "Theme $slug not found";
+                    }
+                } elseif ( $action === 'update' ) {
+                     $result = $upgrader->upgrade( $slug );
+                     if ( is_wp_error( $result ) ) {
+                        $errors[] = "Failed to update $slug: " . $result->get_error_message();
+                    } elseif ( ! $result ) {
+                         $errors[] = "No update available or failed for $slug";
+                    } else {
+                        $success_count++;
                     }
                 }
             }
@@ -231,6 +277,7 @@ class InstalledController {
                     'author'      => $data['AuthorName'],
                     'uri'         => $data['PluginURI'],
                     'update_available' => $update_available,
+                    'package'     => isset($pkg) ? $pkg : '',
                     'source'      => $source,
                     'status'      => $is_active ? 'active' : 'inactive',
                     'type'        => 'plugin',
@@ -272,6 +319,7 @@ class InstalledController {
                     'description' => $theme->get( 'Description' ),
                     'author'      => $theme->get( 'Author' ),
                     'update_available' => $update_available,
+                    'package'     => isset($pkg) ? $pkg : '',
                     'source'      => $source,
                     'status'      => ($slug === $current_theme) ? 'active' : 'inactive',
                     'type'        => 'theme',

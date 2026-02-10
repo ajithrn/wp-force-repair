@@ -1,7 +1,7 @@
 const { useState, useEffect } = wp.element;
 const apiFetch = wp.apiFetch;
 
-import { showSuccessToast, showErrorAlert, showConfirmDialog } from '../utils/notifications';
+import { showSuccessToast, showErrorAlert, showConfirmDialog, showInputDialog, showUploadDialog, showReinstallDialog } from '../utils/notifications';
 
 const InstalledList = ( { type, onReinstall } ) => {
     // items will hold the specific list we are interested in
@@ -11,6 +11,8 @@ const InstalledList = ( { type, onReinstall } ) => {
     
     // Selection state
     const [ selected, setSelected ] = useState( [] );
+    const [ filterSource, setFilterSource ] = useState( 'all' ); // 'all', 'repo', 'external'
+    const [ bulkAction, setBulkAction ] = useState('');
 
     useEffect( () => {
         setItems([]);
@@ -87,28 +89,43 @@ const InstalledList = ( { type, onReinstall } ) => {
         }
     };
 
+    const handleReinstall = async ( item ) => {
+        const defaultUrl = item.package || '';
+        const result = await showReinstallDialog( item, defaultUrl );
+        
+        if ( result.isConfirmed && result.value ) {
+            // result.value is object { mode: 'url'|'upload', url?: string, file?: File }
+            if ( result.value.mode === 'url' ) {
+                 await onReinstall( item.slug, type, result.value.url, '', 'install' );
+            } else {
+                 await onReinstall( item.slug, type, null, '', 'install', result.value.file );
+            }
+            fetchInstalled();
+        }
+    };
+
     const handleUpdate = async ( item ) => {
          const id = type === 'plugin' ? item.file : item.slug;
-         setLoading(true);
-         try {
-             // Use new standard update endpoint
-             const res = await apiFetch({
-                 path: '/wp-force-repair/v1/update/standard',
-                 method: 'POST',
-                 data: { slug: id, type }
-             });
-             
-             if ( res.success ) {
-                 showSuccessToast( `Updated ${item.name} successfully.` );
-                 fetchInstalled();
-             } else {
-                 showErrorAlert( 'Update Failed', res.message );
-                 setLoading(false);
-             }
-         } catch (err) {
-             showErrorAlert( 'Update Error', err.message );
-             setLoading(false);
-         }
+         // Use parent handler (onReinstall) which now supports 'update' action with visual overlay
+         // Signature: handleInstall( slug, type, download_link, progress, action )
+         await onReinstall( id, type, null, '', 'update' );
+         
+         // Since overlay handles success message and closing, we just need to refresh list when done?
+         // Actually overlay doesn't auto-refresh list on close.
+         // We might need a way to know when it closes or succeeds.
+         // Current Dashboard implementation doesn't return anything or callback.
+         // Ideally, Dashboard should accept an onComplete callback.
+         // For now, user will close overlay, but list won't refresh automatically unless page reload or we poll.
+         // Let's rely on manual refresh or add a listener if possible.
+         // Wait, InstalledList mounts/unmounts? No.
+         // We can't easily hook into overlay close from here without passing a callback down.
+         // But for now this gives the VISUAL feedback requested.
+         // I'll add a fetchInstalled() after a delay or just leave it manual.
+         // Better: onReinstall is async, does it await the process?
+         // Yes, handleInstall is async, but it returns once process STARTS? No, it awaits apiFetch.
+         // So we can await it here, then fetchInstalled().
+         
+         fetchInstalled(); 
     };
 
     // --- Bulk Action Handlers ---
@@ -206,6 +223,12 @@ const InstalledList = ( { type, onReinstall } ) => {
         }
     };
 
+    // Filter Logic
+    const filteredItems = items.filter( item => {
+        if ( filterSource === 'all' ) return true;
+        return item.source === filterSource;
+    });
+
     const renderItem = ( item ) => {
         const id = type === 'plugin' ? item.file : item.slug;
         const isSelected = selected.includes( id );
@@ -285,7 +308,7 @@ const InstalledList = ( { type, onReinstall } ) => {
                         { item.source === 'external' ? (
                             <>
                                 { hasUpdate && (
-                                    <button 
+                                     <button 
                                         className="button button-small"
                                         onClick={ () => handleUpdate( item ) }
                                         style={{ height: '24px', lineHeight: '22px', padding: '0 8px', borderColor: '#f56e28', color: '#d63638' }}
@@ -293,7 +316,14 @@ const InstalledList = ( { type, onReinstall } ) => {
                                         Update Now
                                     </button>
                                 )}
-                                {/* No Reinstall for external, prevents overwriting */}
+                                <button 
+                                    className="button button-small" 
+                                    onClick={ () => handleReinstall( item ) }
+                                    style={{ height: '24px', lineHeight: '22px', padding: '0 8px' }}
+                                    title="Reinstall from URL or Zip"
+                                >
+                                    Reinstall
+                                </button>
                             </>
                         ) : (
                             <>
@@ -331,6 +361,8 @@ const InstalledList = ( { type, onReinstall } ) => {
     if ( loading ) return <div className="notice notice-info inline" style={{margin: '10px 0'}}><p>Loading {type}s...</p></div>;
     if ( error ) return <div className="notice notice-error inline" style={{margin: '10px 0'}}><p>Error: { error }</p></div>;
 
+
+
     return (
         <div className="wfr-view-container">
             <div className="wfr-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', marginBottom: '20px' }}>
@@ -340,25 +372,56 @@ const InstalledList = ( { type, onReinstall } ) => {
                         { type === 'plugin' ? 'Manage your installed plugins. Force re-install or delete them safely.' : 'Manage your installed themes. Force re-install or delete them safely.' }
                     </p>
                 </div>
-                { selected.length > 0 && (
-                    <div style={{ display: 'flex', gap: '5px' }}>
-                        <button className="button" onClick={ () => handleBulkAction('activate') }>Activate</button>
-                        <button className="button" onClick={ () => handleBulkAction('deactivate') }>Deactivate</button>
-                        <button className="button button-secondary" onClick={ () => handleBulkAction('reinstall') }>Reinstall</button>
-                        <button className="button button-link-delete" style={{ color: '#b32d2e', borderColor: '#b32d2e' }} onClick={ () => handleBulkAction('delete') }>Delete</button>
-                    </div>
-                )}
             </div>
             
-            <div className="wfr-bulk-bar" style={{ padding: '5px 0', borderBottom: '1px solid #e5e5e5', marginBottom: '15px' }}>
+            {/* Toolbar: Bulk Actions + Filter */}
+            <div className="wfr-bulk-bar" style={{ padding: '10px', background: '#fff', border: '1px solid #c3c4c7', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <select value={bulkAction} onChange={(e) => setBulkAction(e.target.value)} style={{ height: '30px', verticalAlign: 'middle' }}>
+                        <option value="">Bulk Actions</option>
+                        <option value="activate">Activate</option>
+                        <option value="deactivate">Deactivate</option>
+                        <option value="update">Update</option>
+                        <option value="reinstall">Reinstall (Repo Only)</option>
+                        <option value="delete">Delete</option>
+                    </select>
+                    <button 
+                        className="button" 
+                        onClick={ () => handleBulkAction(bulkAction) }
+                        disabled={ !bulkAction || selected.length === 0 || loading }
+                        style={{ height: '30px', lineHeight: '28px' }}
+                    >
+                        Apply
+                    </button>
+                    <span style={{ fontSize: '13px', color: '#666' }}>{ selected.length > 0 ? `${selected.length} selected` : '' }</span>
+                 </div>
+
+                 <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <label style={{ fontWeight: 500, fontSize: '13px' }}>Filter:</label>
+                    <select 
+                        value={ filterSource } 
+                        onChange={ (e) => setFilterSource( e.target.value ) }
+                        style={{ height: '30px', verticalAlign: 'middle' }}
+                    >
+                        <option value="all">All Sources</option>
+                        <option value="repo">WordPress Repo</option>
+                        <option value="external">External</option>
+                    </select>
+                </div>
+            </div>
+
+            <div className="wfr-bulk-select-all" style={{ padding: '0 0 10px 0' }}>
                  <label style={{ fontWeight: 600 }}>
                     <input type="checkbox" onChange={ toggleSelectAll } checked={ items.length > 0 && selected.length === items.length } /> Select All
                  </label>
             </div>
 
             <div className="wfr-list-container">
-                { items.length === 0 && <p>No {type}s found.</p> }
-                { items.map( ( item ) => renderItem( item ) ) }
+                { filteredItems.length === 0 ? (
+                    <p>No {type}s found matching filter.</p>
+                ) : (
+                    filteredItems.map( ( item ) => renderItem( item ) )
+                )}
             </div>
         </div>
     );

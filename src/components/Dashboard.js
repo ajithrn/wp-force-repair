@@ -39,13 +39,19 @@ const Dashboard = () => {
     const [ installMessage, setInstallMessage ] = useState( '' );
     const [ installProgress, setInstallProgress ] = useState( '' );
 
-    const handleInstall = async ( slug, type, download_link, progress = '' ) => {
+    const handleInstall = async ( slug, type, download_link = null, progress = '', action = 'install', file = null ) => {
         setIsInstalling( true );
         setInstallProgress( progress );
         
-        setInstallLogs( [ `Starting installation for ${slug}...`, `Type: ${type}` ] );
-        if ( download_link ) {
+        const actionLabel = action === 'update' ? 'update' : 'installation';
+        
+        setInstallLogs( [ `Starting ${actionLabel} for ${slug}...`, `Type: ${type}` ] );
+        if ( file ) {
+             setInstallLogs( prev => [ ...prev, `Source: Manual Upload` ] );
+        } else if ( download_link ) {
              setInstallLogs( prev => [ ...prev, `Source: ${download_link}` ] );
+        } else if ( action === 'update' ) {
+             setInstallLogs( prev => [ ...prev, `Method: Standard WordPress Upgrade` ] );
         } else {
              setInstallLogs( prev => [ ...prev, `Source: Auto-detect from WP.org` ] );
         }
@@ -54,13 +60,35 @@ const Dashboard = () => {
         setInstallMessage( '' );
 
         try {
-            setInstallLogs( prev => [ ...prev, 'Downloading package...' ] );
+            if ( action === 'install' ) {
+                setInstallLogs( prev => [ ...prev, file ? 'Uploading package...' : 'Downloading package...' ] );
+            } else {
+                setInstallLogs( prev => [ ...prev, 'Checking for updates...' ] );
+            }
             
-            const response = await apiFetch( {
-                path: '/wp-force-repair/v1/install',
-                method: 'POST',
-                data: { slug, type, download_link }
-            } );
+            let response;
+            if ( file ) {
+                const formData = new FormData();
+                formData.append( 'slug', slug );
+                formData.append( 'type', type );
+                formData.append( 'package', file );
+
+                // apiFetch handles formData automatically but we need to ensure it doesn't try to JSON stringify it.
+                // wp.apiFetch documentation says if body is generic object, it stringifies. if FormData, it keeps it.
+                // But we usually pass 'data'. passing 'body' directly works better for FormData.
+                response = await apiFetch( {
+                    path: '/wp-force-repair/v1/install/upload',
+                    method: 'POST',
+                    body: formData
+                } );
+            } else {
+                const endpoint = action === 'update' ? '/wp-force-repair/v1/update/standard' : '/wp-force-repair/v1/install';
+                response = await apiFetch( {
+                    path: endpoint,
+                    method: 'POST',
+                    data: { slug, type, download_link }
+                } );
+            }
 
             // Append backend logs
             if ( response.logs && Array.isArray( response.logs ) ) {
@@ -68,7 +96,7 @@ const Dashboard = () => {
             }
 
             setInstallStatus( 'success' );
-            setInstallMessage( response.message || 'Installation completed successfully.' );
+            setInstallMessage( response.message || `${actionLabel} completed successfully.` );
             setInstallLogs( prev => [ ...prev, 'Done.' ] );
 
         } catch ( error ) {
@@ -80,7 +108,7 @@ const Dashboard = () => {
             }
             
             setInstallStatus( 'error' );
-            setInstallMessage( error.message || 'Installation failed.' );
+            setInstallMessage( error.message || `${actionLabel} failed.` );
             setInstallLogs( prev => [ ...prev, 'Process failed.' ] );
         }
     };

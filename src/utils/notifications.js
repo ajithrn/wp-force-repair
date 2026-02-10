@@ -52,3 +52,114 @@ export const showConfirmDialog = async ( title, text, confirmText, icon = 'warni
         confirmButtonText: confirmText
     });
 };
+
+export const showInputDialog = async ( title, text, placeholder ) => {
+    return MySwal.fire({
+        title: title,
+        text: text,
+        input: 'url',
+        inputPlaceholder: placeholder,
+        showCancelButton: true,
+        confirmButtonText: 'Install',
+        confirmButtonColor: '#d63638',
+        inputValidator: (value) => {
+            if (!value) {
+                return 'You need to write something!'
+            }
+        }
+    });
+};
+
+export const showUploadDialog = async ( title, text ) => {
+    return MySwal.fire({
+        title: title,
+        text: text,
+        input: 'file',
+        inputAttributes: {
+            'accept': '.zip',
+            'aria-label': 'Upload your plugin zip'
+        },
+        showCancelButton: true,
+        confirmButtonText: 'Install',
+        confirmButtonColor: '#d63638',
+        inputValidator: (value) => {
+            if (!value) {
+                return 'You need to select a file!'
+            }
+        }
+    });
+};
+
+export const showReinstallDialog = async ( item, defaultUrl = '' ) => {
+    // HTML for the dialog
+    const htmlContent = `
+        <div style="text-align: left;">
+            <p style="margin-bottom: 15px;">Choose how you want to reinstall <strong>${item.name}</strong>:</p>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 8px; cursor: pointer;">
+                    <input type="radio" name="reinstall_source" value="url" checked> 
+                    Download from URL
+                </label>
+                <div id="wfr-url-input-container" style="margin-left: 20px;">
+                    <input id="wfr-reinstall-url" class="swal2-input" placeholder="https://example.com/plugin.zip" value="${defaultUrl}" style="margin: 0; width: 100%; box-sizing: border-box;">
+                    ${defaultUrl ? '<small style="color: #2271b1;">Found existing update URL.</small>' : ''}
+                </div>
+            </div>
+
+            <div style="margin-bottom: 5px;">
+                <label style="display: block; margin-bottom: 8px; cursor: pointer;">
+                    <input type="radio" name="reinstall_source" value="upload"> 
+                    Upload Zip File
+                </label>
+                <div id="wfr-file-input-container" style="margin-left: 20px; display: none;">
+                    <input type="file" id="wfr-reinstall-file" class="swal2-file" accept=".zip" style="width: 100%; box-sizing: border-box;">
+                </div>
+            </div>
+        </div>
+    `;
+
+    return MySwal.fire({
+        title: 'Reinstall Plugin',
+        html: htmlContent,
+        showCancelButton: true,
+        confirmButtonText: 'Reinstall',
+        confirmButtonColor: '#d63638',
+        didOpen: () => {
+            const popup = MySwal.getPopup();
+            const radios = popup.querySelectorAll('input[name="reinstall_source"]');
+            const urlContainer = popup.querySelector('#wfr-url-input-container');
+            const fileContainer = popup.querySelector('#wfr-file-input-container');
+
+            radios.forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    if (e.target.value === 'url') {
+                        urlContainer.style.display = 'block';
+                        fileContainer.style.display = 'none';
+                    } else {
+                        urlContainer.style.display = 'none';
+                        fileContainer.style.display = 'block';
+                    }
+                });
+            });
+        },
+        preConfirm: () => {
+            const source = MySwal.getPopup().querySelector('input[name="reinstall_source"]:checked').value;
+            if ( source === 'url' ) {
+                const url = MySwal.getPopup().querySelector('#wfr-reinstall-url').value;
+                if ( ! url ) {
+                    MySwal.showValidationMessage('Please enter a valid URL');
+                    return false;
+                }
+                return { mode: 'url', url: url };
+            } else {
+                const fileInput = MySwal.getPopup().querySelector('#wfr-reinstall-file');
+                if ( ! fileInput.files.length ) {
+                    MySwal.showValidationMessage('Please select a zip file');
+                    return false;
+                }
+                return { mode: 'upload', file: fileInput.files[0] };
+            }
+        }
+    });
+};
