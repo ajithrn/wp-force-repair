@@ -236,6 +236,7 @@ class InstalledController {
 
                 $update_available = false;
                 $source = 'external'; // Default to external
+                $pkg = null; // Reset package url
 
                 // Check for updates or repo status
                 // Logic: A plugin is 'repo' if:
@@ -245,9 +246,14 @@ class InstalledController {
                 
                 if ( is_object( $plugin_updates ) ) {
                     // Check if update is available
+                    // Check if update is available
                     if ( isset( $plugin_updates->response ) && isset( $plugin_updates->response[ $file ] ) ) {
                         $update_available = true;
-                        $pkg = isset( $plugin_updates->response[ $file ]->package ) ? $plugin_updates->response[ $file ]->package : '';
+                        $plugin_update = $plugin_updates->response[ $file ];
+                        // Cast to object if array (sometimes array in certain contexts)
+                        $plugin_update = (object) $plugin_update;
+                        
+                        $pkg = isset( $plugin_update->package ) ? $plugin_update->package : '';
                         
                         // Strict: Only trust w.org packages
                         if ( strpos( $pkg, 'wordpress.org' ) !== false ) {
@@ -256,13 +262,27 @@ class InstalledController {
                              $source = 'external';
                         }
                     }
-                    // Check if it's in the 'no_update' list meaning WP.org tracks it
+                    // Check if it's in the 'no_update' list meaning WP.org tracks it or it's an external plugin that populated this
                     elseif ( isset( $plugin_updates->no_update ) && isset( $plugin_updates->no_update[ $file ] ) ) {
                          $item = $plugin_updates->no_update[ $file ];
+                         $item = (object) $item;
+
+                         // Try to get package if available even if no update
+                         if ( isset( $item->package ) && ! empty( $item->package ) ) {
+                             $pkg = $item->package;
+                         }
+
                          // Verify the INFO url points to wordpress.org
                          if ( isset( $item->url ) && strpos( $item->url, 'wordpress.org' ) !== false ) {
                              $source = 'repo';
                          }
+                    } else {
+                        // If not in update transients, check if it LOOKS like a repo plugin (uri/author)
+                        // This helps if transients are empty/expired
+                        if ( ( isset($data['PluginURI']) && strpos($data['PluginURI'], 'wordpress.org') !== false ) || 
+                             ( isset($data['AuthorURI']) && strpos($data['AuthorURI'], 'wordpress.org') !== false ) ) {
+                            $source = 'repo';
+                        }
                     }
                 }
 
