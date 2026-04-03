@@ -57,13 +57,20 @@ class ScanController extends \WP_REST_Controller {
     public function scan_root_files( $request ) {
         $root_path = ABSPATH;
         $relative_path = $request->get_param( 'path' ) ? untrailingslashit( $request->get_param( 'path' ) ) : '';
-        
-        // Security: Prevent traversal
-        if ( strpos( $relative_path, '..' ) !== false ) {
+
+        // Security: Prevent traversal — normalize path and ensure it stays within ABSPATH
+        $scan_path = $relative_path
+            ? realpath( $root_path . $relative_path . '/' )
+            : realpath( $root_path );
+
+        $real_root = realpath( $root_path );
+
+        if ( $scan_path === false || strpos( $scan_path, $real_root ) !== 0 ) {
             return new \WP_Error( 'invalid_path', 'Invalid path.' );
         }
 
-        $scan_path = $relative_path ? $root_path . $relative_path . '/' : $root_path;
+        // Re-add trailing slash after realpath normalization
+        $scan_path = rtrim( $scan_path, '/' ) . '/';
 
         if ( ! is_dir( $scan_path ) ) {
              return new \WP_Error( 'dir_not_found', 'Directory not found.' );

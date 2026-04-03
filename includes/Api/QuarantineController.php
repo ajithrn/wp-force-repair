@@ -106,8 +106,11 @@ class QuarantineController extends \WP_REST_Controller {
         $errors = [];
 
         foreach ( $files_to_move as $rel_path ) {
-            // Security: Prevent traversal
-            if ( strpos( $rel_path, '..' ) !== false ) {
+            // Security: Prevent traversal — normalize path and verify it stays inside ABSPATH
+            $source = realpath( ABSPATH . $rel_path );
+            $real_root = realpath( ABSPATH );
+
+            if ( $source === false || strpos( $source, $real_root ) !== 0 ) {
                 $errors[] = "Invalid path: $rel_path";
                 continue;
             }

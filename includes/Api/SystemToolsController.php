@@ -146,11 +146,19 @@ class SystemToolsController extends \WP_REST_Controller {
 
         if ( preg_match( $pattern, $config_content ) ) {
             $new_content = preg_replace( $pattern, $new_salts, $config_content );
-            if ( file_put_contents( $config_path, $new_content ) ) {
-                return new \WP_REST_Response( [
-                    'success' => true,
-                    'message' => 'Salt keys regenerated. You will be logged out.'
-                ], 200 );
+            // H1: Use atomic write — write to temp file then rename() to avoid
+            // race conditions that could corrupt wp-config.php if another process
+            // reads or writes concurrently.
+            $tmp_path = $config_path . '.wfr_tmp_' . uniqid();
+            if ( file_put_contents( $tmp_path, $new_content ) !== false ) {
+                if ( rename( $tmp_path, $config_path ) ) {
+                    return new \WP_REST_Response( [
+                        'success' => true,
+                        'message' => 'Salt keys regenerated. You will be logged out.'
+                    ], 200 );
+                }
+                // rename failed — clean up and report
+                @unlink( $tmp_path );
             }
         }
 
@@ -402,24 +410,25 @@ class SystemToolsController extends \WP_REST_Controller {
             ], 200 );
         }
 
-        // --- SVG (text-based image, safe to display as code OR as inline image) ---
+        // --- SVG (text-based, returned as code — NOT as data URI) ---
+        // H2: SVGs can embed JavaScript (<script>, onload, etc.). Serving them as
+        // data:image/svg+xml;base64 in an <img> or <object> tag executes that JS
+        // in the admin's browser context. We treat SVGs as text/code instead.
         if ( $ext === 'svg' ) {
             if ( filesize( $real_path ) > 512 * 1024 ) {
                 return new \WP_REST_Response( [
                     'type'    => 'too_large',
                     'message' => 'SVG is too large to preview.',
                     'name'    => basename( $real_path ),
-                    'size'    => size_format( filesize( $real_path ) ),
+                    'size'    => size_format( $real_path ),
                 ], 200 );
             }
-            $b64      = base64_encode( file_get_contents( $real_path ) );
-            $data_uri = "data:image/svg+xml;base64,{$b64}";
             return new \WP_REST_Response( [
-                'type'     => 'image',
-                'name'     => basename( $real_path ),
-                'mime'     => 'image/svg+xml',
-                'data_uri' => $data_uri,
-                'size'     => size_format( filesize( $real_path ) ),
+                'type'    => 'text',
+                'name'    => basename( $real_path ),
+                'ext'     => 'svg',
+                'content' => file_get_contents( $real_path ),
+                'size'    => size_format( filesize( $real_path ) ),
             ], 200 );
         }
 

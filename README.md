@@ -39,6 +39,17 @@
 
 - **Native UI**: A clean, familiar interface built with React that integrates seamlessly with the standard WordPress dashboard.
 
+## Security
+
+WP Force Repair is an **admin-only tool** (`manage_options` capability required on every endpoint). Additional hardening includes:
+
+- **Atomic config writes** — `wp-config.php` is updated via temp-file + `rename()` to prevent corruption under concurrent access.
+- **Credential-safe DB dumps** — `mysqldump` uses a `chmod 600` temp credentials file so the database password is never visible in the system process list.
+- **Path traversal protection** — All file-path parameters (file viewer, quarantine, scan) are validated with `realpath()` boundary checks.
+- **SVG safety** — SVG files are rendered as syntax-highlighted code, not as images, preventing embedded JS execution.
+- **Quarantine isolation** — Quarantined files are renamed with a random suffix, `chmod 600`, and protected by `.htaccess` / `web.config` deny rules.
+- **Backup downloads** — Backup files are served through an authenticated REST endpoint, never via direct URL.
+
 ## Installation
 
 1. Download the latest `wp-force-repair.zip` from our **[GitHub Releases Page](https://github.com/ajithrn/wp-force-repair/releases/latest)**.

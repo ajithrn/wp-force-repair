@@ -163,10 +163,13 @@ class CoreReinstallController extends \WP_REST_Controller {
                 unlink( $temp_file );
             }
             
+            // M6: Log trace server-side only \u2014 do not expose internal file paths in API response
+            error_log( 'WFR Core Reinstall Error: ' . $e->getTraceAsString() );
+
             return new \WP_REST_Response( [
                 'success' => false,
                 'message' => 'Critical Error: ' . $e->getMessage(),
-                'logs'    => array_merge( $logs, [ 'FATAL ERROR: ' . $e->getMessage(), 'Trace: ' . $e->getTraceAsString() ] )
+                'logs'    => array_merge( $logs, [ 'FATAL ERROR: ' . $e->getMessage() ] )
             ], 500 );
         }
 	}

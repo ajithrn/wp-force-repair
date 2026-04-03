@@ -2,6 +2,10 @@
 
 namespace WPForceRepair\Api;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 class BackupController extends \WP_REST_Controller {
 
     private $backup_dir;
@@ -163,10 +167,11 @@ class BackupController extends \WP_REST_Controller {
             // Success! Clean buffer before returning
             ob_end_clean();
 
+            // L3: Do NOT expose a direct URL to the backup file — downloads must
+            // go through the authenticated REST /backup/download endpoint.
             return new \WP_REST_Response( [
                 'success' => true,
-                'url' => $this->upload_url . $filename,
-                'file' => $filename,
+                'file'    => $filename,
                 'message' => 'Backup created successfully.'
             ], 200 );
 
@@ -178,30 +183,40 @@ class BackupController extends \WP_REST_Controller {
 
     private function dump_database( $output_file ) {
         if ( function_exists( 'shell_exec' ) && ! in_array( 'shell_exec', array_map( 'trim', explode( ',', ini_get( 'disable_functions' ) ) ) ) ) {
-            // Try mysqldump
+            // Try mysqldump — use a temp credentials file to avoid exposing the
+            // DB password in the process list (visible via `ps aux` on shared hosts).
             $host = DB_HOST;
             $user = DB_USER;
             $pass = DB_PASSWORD;
             $name = DB_NAME;
-            
-            // Check if socket is in host
-            $socket = '';
+
+            // Check if socket or port is embedded in host
+            $port_arg    = '';
+            $socket_arg  = '';
             if ( strpos( $host, ':' ) !== false ) {
                 $parts = explode( ':', $host );
-                $host = $parts[0];
+                $host  = $parts[0];
                 if ( is_numeric( $parts[1] ) ) {
-                    $port = $parts[1];
+                    $port_arg = "\nport=" . intval( $parts[1] );
                 } else {
-                    $socket = $parts[1];
+                    $socket_arg = "\nsocket=" . $parts[1];
                 }
             }
 
-            $cmd = "mysqldump --host=" . escapeshellarg($host) . " --user=" . escapeshellarg($user) . " --password=" . escapeshellarg($pass) . " " . escapeshellarg($name) . " > " . escapeshellarg($output_file);
-            
-            shell_exec( $cmd );
+            // Write credentials to a temp file (chmod 600 so only owner can read)
+            $cnf_content = "[mysqldump]\nhost=" . $host . "\nuser=" . $user . "\npassword=" . $pass . $port_arg . $socket_arg . "\n";
+            $tmp_cnf = tempnam( sys_get_temp_dir(), 'wfr_db_' );
+            if ( $tmp_cnf !== false ) {
+                file_put_contents( $tmp_cnf, $cnf_content );
+                @chmod( $tmp_cnf, 0600 );
 
-            if ( file_exists( $output_file ) && filesize( $output_file ) > 0 ) {
-                return;
+                $cmd = 'mysqldump --defaults-extra-file=' . escapeshellarg( $tmp_cnf ) . ' ' . escapeshellarg( $name ) . ' > ' . escapeshellarg( $output_file ) . ' 2>&1';
+                shell_exec( $cmd );
+                @unlink( $tmp_cnf );
+
+                if ( file_exists( $output_file ) && filesize( $output_file ) > 0 ) {
+                    return;
+                }
             }
         }
 
@@ -218,13 +233,19 @@ class BackupController extends \WP_REST_Controller {
 
         foreach ( $tables as $table ) {
             $table_name = $table[0];
-            $create_table = $wpdb->get_row( "SHOW CREATE TABLE $table_name", ARRAY_N );
+            // Validate table name to prevent unexpected SQL issues
+            if ( ! preg_match( '/^[a-zA-Z0-9_]+$/', $table_name ) ) continue;
+
+            $create_table = $wpdb->get_row( "SHOW CREATE TABLE `{$table_name}`", ARRAY_N );
             fwrite( $handle, "\n\n" . $create_table[1] . ";\n\n" );
 
-            $rows = $wpdb->get_results( "SELECT * FROM $table_name", ARRAY_A );
+            $rows = $wpdb->get_results( "SELECT * FROM `{$table_name}`", ARRAY_A );
             foreach ( $rows as $row ) {
-                $row = array_map( [ $wpdb, '_real_escape' ], $row );
-                $sql = "INSERT INTO $table_name VALUES('" . implode( "','", $row ) . "');\n";
+                // Fix M7: preserve NULL values instead of converting to empty strings
+                $values = array_map( function( $val ) use ( $wpdb ) {
+                    return is_null( $val ) ? 'NULL' : "'" . $wpdb->_real_escape( $val ) . "'";
+                }, $row );
+                $sql = "INSERT INTO `{$table_name}` VALUES(" . implode( ',', $values ) . ");\n";
                 fwrite( $handle, $sql );
             }
         }
@@ -235,7 +256,7 @@ class BackupController extends \WP_REST_Controller {
         // IMPROVEMENT: Prevent client disconnect from killing process
         ignore_user_abort( true );
         @set_time_limit( 0 );
-        @ini_set( 'memory_limit', '-1' );
+        @ini_set( 'memory_limit', '1G' ); // Capped — avoid unlimited OOM risk
         @ini_set( 'max_execution_time', 0 ); // Redundant but safe
         
         $rootPath = realpath( ABSPATH );
@@ -399,8 +420,8 @@ class BackupController extends \WP_REST_Controller {
     public function download_backup( $request ) {
         $filename = basename( $request->get_param( 'file' ) );
 
-        // Strict filename validation: only allow backup-*.sql.zip and backup-*.zip patterns
-        if ( ! preg_match( '/^backup-[a-z0-9\-]+-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.(sql\.zip|zip|sql)$/', $filename ) ) {
+        // Strict filename validation: length cap + pattern whitelist
+        if ( strlen( $filename ) > 200 || ! preg_match( '/^backup-[a-z0-9\-]+-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.(sql\.zip|zip|sql)$/', $filename ) ) {
             return new \WP_Error( 'invalid_file', 'Invalid file name.', [ 'status' => 400 ] );
         }
 

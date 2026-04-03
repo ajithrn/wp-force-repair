@@ -106,3 +106,15 @@ Don't worry. Go to the **Quarantine** section at the bottom of the Core Manager 
 ### Q: Why isn't my premium plugin showing up for update?
 
 Currently, WP Force Repair connects to the **public** WordPress.org repository. It cannot force-update paid/premium plugins that require license keys or private APIs.
+
+### Q: Why do SVG files show as code instead of a preview image?
+
+SVG files can embed executable JavaScript, which could run in your browser if displayed as an image. WP Force Repair displays SVG files as **safe syntax-highlighted code** instead, so you can inspect the contents without any risk of script execution. This is intentional security behaviour.
+
+### Q: Is the Database Backup secure?
+
+Yes. The database dump (`mysqldump`) uses a temporary credentials file with strict `600` permissions so your database password is never exposed in the system process list. SQL backups are stored in a protected directory (`wfr-backups/`) with `.htaccess` and `web.config` deny rules. All downloads go through the plugin's authenticated REST endpoint — the file is never directly accessible via URL.
+
+### Q: What happens if the Core Reinstall fails mid-way?
+
+If a fatal error occurs, it is written to your server's PHP error log (`error_log`). A simplified error message is shown in the UI. Your `wp-config.php` is backed up to memory before the process starts and is restored automatically if it goes missing after the reinstall.

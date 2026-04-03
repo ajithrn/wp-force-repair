@@ -3,7 +3,7 @@
  * Plugin Name:       WP Force Repair
  * Plugin URI:        https://github.com/ajithrn/wp-force-repair
  * Description:       The ultimate recovery tool. Force install plugins/themes, repair core files, fix database health, and debug system issues.
- * Version:           2.12.0
+ * Version:           2.13.0
  * Requires at least: 6.0
  * Requires PHP:      7.4
  * Author:            Ajith R N
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'WFR_VERSION', '2.12.0' );
+define( 'WFR_VERSION', '2.13.0' );
 define( 'WFR_PATH', plugin_dir_path( __FILE__ ) );
 define( 'WFR_URL', plugin_dir_url( __FILE__ ) );
 
@@ -39,8 +39,13 @@ spl_autoload_register( function( $class ) {
 	$relative_class = substr( $class, $len );
 	$file = $base_dir . str_replace( '\\', '/', $relative_class ) . '.php';
 
-	if ( file_exists( $file ) ) {
-		require $file;
+	// L8: Verify the resolved path stays within our includes/ directory
+	// to prevent path traversal via crafted class names.
+	$real_file    = realpath( $file );
+	$real_base    = realpath( $base_dir );
+
+	if ( $real_file !== false && $real_base !== false && strpos( $real_file, $real_base ) === 0 ) {
+		require $real_file;
 	}
 } );
 

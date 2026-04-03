@@ -2,6 +2,10 @@
 
 namespace WPForceRepair\Api;
 
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 class DatabaseController extends \WP_REST_Controller {
 
     public function __construct() {
@@ -61,7 +65,10 @@ class DatabaseController extends \WP_REST_Controller {
         }
 
         foreach ( $tables as $table ) {
-            $wpdb->query( "ANALYZE TABLE `$table`" );
+            // M3: Validate table name format before use in raw SQL
+            if ( preg_match( '/^[a-zA-Z0-9_]+$/', $table ) ) {
+                $wpdb->query( "ANALYZE TABLE `{$table}`" );
+            }
         }
 
         return new \WP_REST_Response( [ 
@@ -115,9 +122,9 @@ class DatabaseController extends \WP_REST_Controller {
             $rows = (float) ($table['rows'] ?? 0);
 
             // FIX: If InnoDB stats are 0, force a real count (Expensive but accurate)
-            if ( $rows == 0 ) {
-                // Check if table actually exists to avoid error
-                $rows = (int) $wpdb->get_var( "SELECT COUNT(*) FROM `$name`" );
+            // M2: Validate table name format before embedding in query
+            if ( $rows == 0 && preg_match( '/^[a-zA-Z0-9_]+$/', $name ) ) {
+                $rows = (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$name}`" );
             }
 
             $size = $data_len + $index_len;

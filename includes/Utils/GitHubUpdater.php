@@ -143,8 +143,15 @@ class GitHubUpdater {
     
     private function parse_markdown( $text ) {
         // Simple markdown parser for changelog (bold, list, link)
+        // L4: Use esc_url/esc_html to prevent javascript: URIs from malicious release notes
         $text = preg_replace( '/\*\*(.*?)\*\*/', '<strong>$1</strong>', $text );
-        $text = preg_replace( '/\[(.*?)\]\((.*?)\)/', '<a href="$2">$1</a>', $text );
+        $text = preg_replace_callback(
+            '/\[(.*?)\]\((.*?)\)/',
+            function( $m ) {
+                return '<a href="' . esc_url( $m[2] ) . '">' . esc_html( $m[1] ) . '</a>';
+            },
+            $text
+        );
         $text = preg_replace( '/^\s*-\s+(.*)/m', '<li>$1</li>', $text );
         $text = preg_replace( '/((<li>.*<\/li>\s*)+)/s', '<ul>$1</ul>', $text );
         return nl2br( $text );
