@@ -188,16 +188,78 @@ const CoreManager = () => {
     };
 
     const handleViewFile = async ( file ) => {
-        if( file.type === 'directory' ) return;
+        if ( file.type === 'directory' ) return;
         MySwal.fire({ title: 'Loading...', didOpen: () => MySwal.showLoading() });
         try {
-            const res = await apiFetch({ path: `/wp-force-repair/v1/core/tools/view-file?file=${file.path}` });
+            const res = await apiFetch({ path: `/wp-force-repair/v1/core/tools/view-file?file=${encodeURIComponent(file.path)}` });
+
+            let html = '';
+            let modalWidth = '800px';
+
+            if ( res.type === 'image' ) {
+                // Render image using the base64 data URI returned by backend
+                html = `
+                    <div style="text-align:center; padding: 10px;">
+                        <img 
+                            src="${res.data_uri}" 
+                            alt="${res.name}" 
+                            style="max-width:100%; max-height:500px; border-radius:4px; box-shadow:0 2px 8px rgba(0,0,0,0.15);"
+                        />
+                        <p style="margin-top:8px; color:#666; font-size:12px;">${res.name} &nbsp;·&nbsp; ${res.size}</p>
+                    </div>`;
+                modalWidth = '900px';
+
+            } else if ( res.type === 'binary' ) {
+                // Binary / archive / media — can't preview
+                const iconMap = {
+                    zip: '🗜️', gz: '🗜️', tar: '🗜️', rar: '🗜️', '7z': '🗜️',
+                    pdf: '📄', doc: '📄', docx: '📄',
+                    mp3: '🎵', wav: '🎵', ogg: '🎵',
+                    mp4: '🎬', avi: '🎬', mov: '🎬',
+                    ttf: '🔤', woff: '🔤', woff2: '🔤',
+                    exe: '⚙️', dll: '⚙️',
+                };
+                const icon = iconMap[ res.ext ] || '📦';
+                html = `
+                    <div style="text-align:center; padding:20px;">
+                        <div style="font-size:56px; margin-bottom:12px;">${icon}</div>
+                        <p style="font-size:15px; font-weight:600; margin:0 0 6px;">${res.name}</p>
+                        <p style="color:#666; font-size:13px; margin:0 0 16px;">Size: ${res.size} &nbsp;·&nbsp; Type: .${res.ext}</p>
+                        <div style="background:#fff3cd; border:1px solid #ffc107; border-radius:4px; padding:10px 16px; display:inline-block; font-size:13px; color:#856404;">
+                            ⚠️ ${res.message}
+                        </div>
+                    </div>`;
+                modalWidth = '500px';
+
+            } else if ( res.type === 'too_large' ) {
+                // File too large to display
+                html = `
+                    <div style="text-align:center; padding:20px;">
+                        <div style="font-size:48px; margin-bottom:12px;">📦</div>
+                        <p style="font-size:15px; font-weight:600; margin:0 0 6px;">${res.name}</p>
+                        <p style="color:#666; font-size:13px; margin:0 0 16px;">Size: ${res.size}</p>
+                        <div style="background:#cce5ff; border:1px solid #b8daff; border-radius:4px; padding:10px 16px; display:inline-block; font-size:13px; color:#004085;">
+                            ℹ️ ${res.message}
+                        </div>
+                    </div>`;
+                modalWidth = '500px';
+
+            } else {
+                // Text / code — default view
+                const escaped = String( res.content || '' )
+                    .replace( /&/g, '&amp;' )
+                    .replace( /</g, '&lt;' )
+                    .replace( />/g, '&gt;' );
+                html = `<pre style="text-align:left; max-height:500px; overflow:auto; background:#f0f0f1; padding:12px; border-radius:4px; font-size:12px; line-height:1.5; white-space:pre-wrap; word-break:break-all;">${escaped}</pre>`;
+            }
+
             MySwal.fire({
                 title: file.name,
-                html: `<pre style="text-align:left; max-height:400px; overflow:auto; background:#f0f0f1; padding:10px; border-radius:4px; font-size: 12px;">${String(res.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`,
-                width: '800px',
+                html,
+                width: modalWidth,
                 showConfirmButton: true,
-                confirmButtonText: 'Close'
+                confirmButtonText: 'Close',
+                customClass: { popup: 'wfr-file-preview-modal' }
             });
         } catch ( e ) {
             showErrorAlert( 'Error', e.message );

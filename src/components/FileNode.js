@@ -39,6 +39,29 @@ const FileNode = ({ file, depth, expandedPaths, fileCache, selectedFiles, onTogg
         };
     };
 
+    const getFileIcon = ( name ) => {
+        const ext = name.split('.').pop().toLowerCase();
+        if ( [ 'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'ico', 'svg' ].includes( ext ) ) {
+            return 'dashicons-format-image';
+        }
+        if ( [ 'zip', 'tar', 'gz', 'tgz', 'rar', '7z', 'bz2', 'xz' ].includes( ext ) ) {
+            return 'dashicons-media-archive';
+        }
+        if ( [ 'mp3', 'wav', 'ogg', 'flac', 'aac' ].includes( ext ) ) {
+            return 'dashicons-format-audio';
+        }
+        if ( [ 'mp4', 'avi', 'mov', 'mkv', 'webm' ].includes( ext ) ) {
+            return 'dashicons-format-video';
+        }
+        if ( [ 'pdf' ].includes( ext ) ) {
+            return 'dashicons-pdf';
+        }
+        if ( [ 'php', 'js', 'jsx', 'ts', 'tsx', 'css', 'scss', 'html', 'htm' ].includes( ext ) ) {
+            return 'dashicons-editor-code';
+        }
+        return 'dashicons-media-text';
+    };
+
     return (
         <>
             <tr style={ isExpanded ? { backgroundColor: '#f6f7f7' } : {} }>
@@ -62,7 +85,7 @@ const FileNode = ({ file, depth, expandedPaths, fileCache, selectedFiles, onTogg
                         </a>
                     ) : (
                         <span style={{ display: 'flex', alignItems: 'center', paddingLeft: '22px' }}>
-                            <span className="dashicons dashicons-media-text" style={{ marginRight: '4px', color: '#8c8f94' }}></span>
+                            <span className={`dashicons ${getFileIcon(file.name)}`} style={{ marginRight: '4px', color: '#8c8f94' }}></span>
                             {file.name}
                         </span>
                     )}

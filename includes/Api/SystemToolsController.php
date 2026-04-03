@@ -351,28 +351,125 @@ class SystemToolsController extends \WP_REST_Controller {
 
         // Security: Prevent traversal and ensure it's in root
         $path = ABSPATH . $file;
-        
-        if ( strpos( realpath($path), realpath(ABSPATH) ) !== 0 ) {
-             return new \WP_Error( 'invalid_path', 'Invalid path.' );
-        }
-        
-        if ( ! file_exists( $path ) ) {
-             return new \WP_Error( 'file_not_found', 'File not found.' );
-        }
-        
-        if ( is_dir( $path ) ) {
-             return new \WP_Error( 'is_dir', 'Cannot read a directory.' );
+
+        $real_path = realpath( $path );
+        $real_root = realpath( ABSPATH );
+
+        if ( $real_path === false || strpos( $real_path, $real_root ) !== 0 ) {
+            return new \WP_Error( 'invalid_path', 'Invalid path.' );
         }
 
-        // Limit size to avoid memory issues (e.g., 1MB)
-        if ( filesize( $path ) > 1024 * 1024 ) {
-            return new \WP_Error( 'file_too_large', 'File is too large to view.' );
+        if ( ! file_exists( $real_path ) ) {
+            return new \WP_Error( 'file_not_found', 'File not found.' );
         }
 
-        $content = file_get_contents( $path );
+        if ( is_dir( $real_path ) ) {
+            return new \WP_Error( 'is_dir', 'Cannot read a directory.' );
+        }
+
+        $ext = strtolower( pathinfo( $real_path, PATHINFO_EXTENSION ) );
+
+        // --- IMAGE FILES ---
+        $image_exts = [ 'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'ico' ];
+        if ( in_array( $ext, $image_exts ) ) {
+            // Size cap: 5MB for images encoded as base64
+            if ( filesize( $real_path ) > 5 * 1024 * 1024 ) {
+                return new \WP_REST_Response( [
+                    'type'    => 'too_large',
+                    'message' => 'Image is too large to preview (> 5MB).',
+                    'name'    => basename( $real_path ),
+                    'size'    => size_format( filesize( $real_path ) ),
+                ], 200 );
+            }
+            $mime_map = [
+                'jpg'  => 'image/jpeg',
+                'jpeg' => 'image/jpeg',
+                'png'  => 'image/png',
+                'gif'  => 'image/gif',
+                'webp' => 'image/webp',
+                'bmp'  => 'image/bmp',
+                'ico'  => 'image/x-icon',
+            ];
+            $mime      = $mime_map[ $ext ] ?? 'image/jpeg';
+            $b64       = base64_encode( file_get_contents( $real_path ) );
+            $data_uri  = "data:{$mime};base64,{$b64}";
+            return new \WP_REST_Response( [
+                'type'     => 'image',
+                'name'     => basename( $real_path ),
+                'mime'     => $mime,
+                'data_uri' => $data_uri,
+                'size'     => size_format( filesize( $real_path ) ),
+            ], 200 );
+        }
+
+        // --- SVG (text-based image, safe to display as code OR as inline image) ---
+        if ( $ext === 'svg' ) {
+            if ( filesize( $real_path ) > 512 * 1024 ) {
+                return new \WP_REST_Response( [
+                    'type'    => 'too_large',
+                    'message' => 'SVG is too large to preview.',
+                    'name'    => basename( $real_path ),
+                    'size'    => size_format( filesize( $real_path ) ),
+                ], 200 );
+            }
+            $b64      = base64_encode( file_get_contents( $real_path ) );
+            $data_uri = "data:image/svg+xml;base64,{$b64}";
+            return new \WP_REST_Response( [
+                'type'     => 'image',
+                'name'     => basename( $real_path ),
+                'mime'     => 'image/svg+xml',
+                'data_uri' => $data_uri,
+                'size'     => size_format( filesize( $real_path ) ),
+            ], 200 );
+        }
+
+        // --- ARCHIVE / BINARY FILES ---
+        $binary_exts = [ 'zip', 'tar', 'gz', 'tgz', 'rar', '7z', 'bz2', 'xz',
+                         'exe', 'dll', 'so', 'bin', 'iso', 'dmg', 'pkg',
+                         'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',
+                         'mp3', 'mp4', 'avi', 'mov', 'wav', 'ogg', 'flac',
+                         'ttf', 'otf', 'woff', 'woff2', 'eot' ];
+        if ( in_array( $ext, $binary_exts ) ) {
+            $size = filesize( $real_path );
+            return new \WP_REST_Response( [
+                'type'    => 'binary',
+                'name'    => basename( $real_path ),
+                'ext'     => $ext,
+                'size'    => size_format( $size ),
+                'message' => "Binary files cannot be previewed in the browser.",
+            ], 200 );
+        }
+
+        // --- TEXT / CODE FILES ---
+        // Size cap: 1MB
+        if ( filesize( $real_path ) > 1024 * 1024 ) {
+            return new \WP_REST_Response( [
+                'type'    => 'too_large',
+                'message' => 'File is too large to view (> 1MB). Please download it.',
+                'name'    => basename( $real_path ),
+                'size'    => size_format( filesize( $real_path ) ),
+            ], 200 );
+        }
+
+        $content = file_get_contents( $real_path );
+
+        // Detect if content looks binary (null bytes in first 8KB)
+        $sample = substr( $content, 0, 8192 );
+        if ( strpos( $sample, "\x00" ) !== false ) {
+            return new \WP_REST_Response( [
+                'type'    => 'binary',
+                'name'    => basename( $real_path ),
+                'ext'     => $ext,
+                'size'    => size_format( filesize( $real_path ) ),
+                'message' => "This file appears to be binary and cannot be previewed.",
+            ], 200 );
+        }
+
         return new \WP_REST_Response( [
-            'success' => true,
-            'content' => $content
+            'type'    => 'text',
+            'name'    => basename( $real_path ),
+            'ext'     => $ext,
+            'content' => $content,
         ], 200 );
     }
 }

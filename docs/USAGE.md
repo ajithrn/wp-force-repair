@@ -27,6 +27,7 @@ Use this if you suspect core file corruption or hacking.
 The **Integrity Scan** checks your entire WordPress installation, including subfolders like `wp-content` and `plugins`.
 
 * **Explore**: Click on any folder to scan inside it.
+* **File Viewer**: Click **View** on any file to safely preview its contents directly within the dashboard. The viewer handles various file types smartly (e.g., displaying images, viewing text/code, and providing safe alerts for binary files).
 * **Smart Protection**: Essential system files (like `wp-config.php`) show a **Lock Icon 🔒** and cannot be quarantined or deleted accidentally.
 * **Quarantine**: Move suspicious files to safe isolation (`wp-content/uploads/wfr-quarantine/`).
 * **Auto-Cleanup**: When you restore or permanently delete the last file in a quarantine folder, the empty folder is automatically removed to keep things tidy.
