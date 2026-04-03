@@ -29,10 +29,13 @@
   - **Toggle Status**: Activate or Deactivate plugins/themes directly from the list.
   - **Force Update**: Re-install any plugin/theme from the official repository.
 
-- **Backup Manager (Beta)**:
+- **Backup Manager**:
+  - **Dedicated Tab**: Backup Manager has its own tab in the dashboard navigation.
   - **Full File Backup**: Download your entire WordPress root directory as a ZIP (smartly excludes backups and node_modules).
   - **Database Dump**: Export your full database (SQL) using fast `mysqldump` or robust PHP fallback mode.
-  - **Auto-Cleanup**: Prompts to delete backup files immediately after download to save space.
+  - **Stored Backups List**: View, download, or delete all backups currently stored on the server.
+  - **Secure Downloads**: Backup files are protected from direct URL access; downloads are served securely via the plugin's REST API.
+  - **Post-Backup Actions**: Choose to delete the backup from the server immediately or keep it for later retrieval.
 
 - **Native UI**: A clean, familiar interface built with React that integrates seamlessly with the standard WordPress dashboard.
 

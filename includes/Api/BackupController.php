@@ -60,6 +60,22 @@ class BackupController extends \WP_REST_Controller {
                 return current_user_can( 'manage_options' );
             },
         ] );
+
+        register_rest_route( 'wp-force-repair/v1', '/backup/download', [
+            'methods'             => 'GET',
+            'callback'            => [ $this, 'download_backup' ],
+            'permission_callback' => function () {
+                return current_user_can( 'manage_options' );
+            },
+        ] );
+
+        register_rest_route( 'wp-force-repair/v1', '/backup/list', [
+            'methods'             => 'GET',
+            'callback'            => [ $this, 'list_backups' ],
+            'permission_callback' => function () {
+                return current_user_can( 'manage_options' );
+            },
+        ] );
     }
 
     public function check_capabilities() {
@@ -378,5 +394,61 @@ class BackupController extends \WP_REST_Controller {
         
         // Return 404 for missing file, not 500
         return new \WP_Error( 'file_not_found', 'File not found.', [ 'status' => 404 ] );
+    }
+
+    public function download_backup( $request ) {
+        $filename = basename( $request->get_param( 'file' ) );
+
+        // Strict filename validation: only allow backup-*.sql.zip and backup-*.zip patterns
+        if ( ! preg_match( '/^backup-[a-z0-9\-]+-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.(sql\.zip|zip|sql)$/', $filename ) ) {
+            return new \WP_Error( 'invalid_file', 'Invalid file name.', [ 'status' => 400 ] );
+        }
+
+        $path = $this->backup_dir . $filename;
+
+        if ( ! file_exists( $path ) ) {
+            return new \WP_Error( 'file_not_found', 'Backup file not found.', [ 'status' => 404 ] );
+        }
+
+        $mime = strpos( $filename, '.zip' ) !== false ? 'application/zip' : 'application/octet-stream';
+        $size = filesize( $path );
+
+        // Send file download headers and stream the file
+        nocache_headers();
+        header( 'Content-Type: ' . $mime );
+        header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
+        header( 'Content-Length: ' . $size );
+        header( 'Pragma: no-cache' );
+        header( 'Expires: 0' );
+
+        // Flush any output buffers to prevent memory issues with large files
+        while ( ob_get_level() ) {
+            ob_end_clean();
+        }
+
+        readfile( $path );
+        exit;
+    }
+
+    public function list_backups() {
+        $files = glob( $this->backup_dir . 'backup-*' );
+        $backups = [];
+
+        if ( ! empty( $files ) ) {
+            foreach ( $files as $file ) {
+                $name = basename( $file );
+                $backups[] = [
+                    'file' => $name,
+                    'size' => size_format( filesize( $file ) ),
+                    'date' => date( 'Y-m-d H:i:s', filemtime( $file ) ),
+                ];
+            }
+            // Sort newest first
+            usort( $backups, function( $a, $b ) {
+                return strcmp( $b['date'], $a['date'] );
+            });
+        }
+
+        return new \WP_REST_Response( [ 'backups' => $backups ], 200 );
     }
 }

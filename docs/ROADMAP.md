@@ -31,10 +31,14 @@
 - [x] **Full Site Backup**:
   - Download entire root directory as ZIP.
   - Smart exclusions (node_modules, .git, existing backups).
+  - Option to exclude Media Library to reduce archive size.
 - [x] **Database Backup**:
   - Export full database (SQL dump).
   - Support for `mysqldump` (fast) with PHP fallback (compatible).
-  - **Auto-Cleanup**: Prompts to delete backups to save space.
+- [x] **Dedicated Backups Tab**: Backup Manager promoted to its own navigation tab.
+- [x] **Stored Backups List**: View all backups on the server with size, date, download, and delete actions.
+- [x] **Secure Download Endpoint**: Backup files protected from direct URL access; served via authenticated REST API endpoint (bypasses `.htaccess Deny from all`).
+- [x] **Post-Backup Workflow**: Two clear choices after backup — Delete from Server or Keep on Server.
 
 ## Phase 3: Database & Core Health (In Progress)
 

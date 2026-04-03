@@ -6,13 +6,15 @@ import InstallerOverlay from './InstallerOverlay';
 import CoreManager from './CoreManager';
 import DatabaseHealth from './DatabaseHealth';
 import SystemHealth from './SystemHealth';
+import BackupManager from './BackupManager';
 import Help from './Help';
+
 
 const Dashboard = () => {
     // Helper to get view from hash or default
     const getHashView = () => {
         const hash = window.location.hash.replace('#', '');
-        const validViews = ['installed_plugins', 'installed_themes', 'core', 'database', 'system_health', 'help'];
+        const validViews = ['installed_plugins', 'installed_themes', 'core', 'database', 'backups', 'system_health', 'help'];
         return validViews.includes(hash) ? hash : 'installed_plugins';
     };
 
@@ -161,6 +163,13 @@ const Dashboard = () => {
                 </a>
                 <a 
                     href="#" 
+                    className={`nav-tab ${ view === 'backups' ? 'nav-tab-active' : '' }`}
+                    onClick={(e) => { e.preventDefault(); setView('backups'); }}
+                >
+                    Backups
+                </a>
+                <a 
+                    href="#" 
                     className={`nav-tab ${ view === 'system_health' ? 'nav-tab-active' : '' }`}
                     onClick={(e) => { e.preventDefault(); setView('system_health'); }}
                 >
@@ -180,6 +189,7 @@ const Dashboard = () => {
                 { view === 'installed_themes' && <InstalledList type="theme" onReinstall={ handleInstall } /> }
                 { view === 'core' && <CoreManager /> }
                 { view === 'database' && <DatabaseHealth /> }
+                { view === 'backups' && <BackupManager /> }
                 { view === 'system_health' && <SystemHealth /> }
                 { view === 'help' && <Help /> }
             </div>

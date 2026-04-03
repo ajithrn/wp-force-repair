@@ -40,13 +40,30 @@ Fix common issues with one click:
 * **Regenerate Salts**: Logs out all users and invalidates cookies (useful if site hacked).
 * **Connection Tester**: Checks if your server can talk to itself (loopback). Essential for scheduled tasks (WP-Cron) and plugin updates.
 
-### 5. Backup Manager (Beta)
+### 5. Backup Manager
 
-Before making major repairs, it is always safe to take a backup.
+The **Backups** tab gives you a dedicated space to create and manage site backups before making any significant changes.
 
-* **Download Files**: Creates a zip of your entire root directory (`backup-{site-name}-files-{date}.zip`).
-* **Download Database**: Exports your database as a SQL file (`backup-{site-name}-db-{date}.sql` or `.zip`).
-* **Auto-Cleanup**: After downloading, the plugin will ask if you want to delete the backup file from the server. We recommend clicking **Delete** to save space and keep your server clean.
+#### Creating a Backup
+
+* **Backup Database (SQL)**: Exports your full database to a compressed SQL file using `mysqldump` (fast) or a PHP fallback if shell access is unavailable.
+* **Backup Files (ZIP)**: Compresses your entire WordPress root directory into a ZIP archive. You can optionally exclude the Media Library to keep file size manageable.
+
+Server capabilities are shown at a glance — ZipArchive availability, dump method, and PHP memory limit.
+
+#### After the Backup Completes
+
+A dialog appears with a **Download Backup** link and two choices:
+
+* **Delete from Server** — removes the file immediately after you have downloaded it (recommended).
+* **Keep on Server** — retains the file so you can download it later from the Stored Backups list.
+
+#### Stored Backups List
+
+All backups currently on the server are listed in a table with filename, type (Database / Files), size, and creation date. You can:
+
+* **Download** any backup securely via the plugin's built-in endpoint — backup files are protected from direct URL access by `.htaccess`.
+* **Delete** a backup from the server when it is no longer needed.
 
 ### 6. Database Health
 
