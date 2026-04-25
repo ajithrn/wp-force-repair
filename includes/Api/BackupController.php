@@ -313,7 +313,7 @@ class BackupController extends \WP_REST_Controller {
         }
 
         $files = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator( $rootPath ),
+            new \RecursiveDirectoryIterator( $rootPath, \RecursiveDirectoryIterator::SKIP_DOTS ),
             \RecursiveIteratorIterator::LEAVES_ONLY
         );
 
