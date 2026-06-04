@@ -20,6 +20,7 @@ class GitHubUpdater {
 
 		add_filter( 'pre_set_site_transient_update_plugins', [ $this, 'check_update' ] );
 		add_filter( 'plugins_api', [ $this, 'check_info' ], 10, 3 );
+		add_action( 'upgrader_process_complete', [ $this, 'clear_transient_after_update' ], 10, 2 );
 	}
 
 	public function check_update( $transient ) {
@@ -141,6 +142,27 @@ class GitHubUpdater {
 		return $obj;
 	}
     
+    /**
+     * Clear the cached GitHub release transient after this plugin is updated.
+     * This ensures the "update available" notice disappears immediately.
+     *
+     * @param \WP_Upgrader $upgrader WP_Upgrader instance.
+     * @param array        $options  Array of update data.
+     */
+    public function clear_transient_after_update( $upgrader, $options ) {
+        if ( 'update' !== ( $options['action'] ?? '' ) || 'plugin' !== ( $options['type'] ?? '' ) ) {
+            return;
+        }
+
+        $this_plugin = plugin_basename( $this->plugin_file );
+
+        // Check if our plugin was among those updated.
+        $plugins = $options['plugins'] ?? [];
+        if ( in_array( $this_plugin, $plugins, true ) ) {
+            delete_site_transient( $this->transient_key );
+        }
+    }
+
     private function parse_markdown( $text ) {
         // Simple markdown parser for changelog (bold, list, link)
         // L4: Use esc_url/esc_html to prevent javascript: URIs from malicious release notes
